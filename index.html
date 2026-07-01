@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>紫微速記練習 · Yi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f4ece0; --card:#fbf6ee; --ink:#2c2722; --muted:#8a7e6e;
+    --line:#e2d6c4; --accent:#b5562f; --accent-soft:#e8c9b6;
+    --good:#3f7d54; --bad:#b5562f; --gold:#c08a2d;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:"Noto Sans TC",sans-serif; line-height:1.6;
+    padding:env(safe-area-inset-top) 0 40px;
+  }
+  .wrap{max-width:560px; margin:0 auto; padding:24px 18px}
+  header{text-align:center; margin-bottom:8px}
+  h1{font-family:"Noto Serif TC",serif; font-weight:900; font-size:26px; margin:0; letter-spacing:1px}
+  .sub{color:var(--muted); font-size:13px; margin-top:2px}
+  .tabs{display:flex; gap:6px; margin:20px 0 16px; background:#ece1d1; padding:5px; border-radius:14px}
+  .tabs button{
+    flex:1; border:0; background:transparent; color:var(--muted); font-family:inherit;
+    font-weight:700; font-size:14px; padding:9px 4px; border-radius:10px; cursor:pointer; transition:.15s
+  }
+  .tabs button.on{background:var(--card); color:var(--ink); box-shadow:0 1px 4px rgba(0,0,0,.08)}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:18px;
+    padding:26px 22px; box-shadow:0 4px 18px rgba(120,90,50,.07); min-height:300px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center
+  }
+  .prompt-label{color:var(--muted); font-size:13px; letter-spacing:2px; margin-bottom:10px}
+  .big{font-family:"Noto Serif TC",serif; font-weight:900; line-height:1.15}
+  .stem{font-size:88px; color:var(--accent)}
+  .year{font-size:58px}
+  .meta{color:var(--muted); font-size:15px; margin-top:6px}
+  .reveal{
+    width:100%; margin-top:22px; padding-top:20px; border-top:1px dashed var(--line);
+    animation:fade .2s ease
+  }
+  @keyframes fade{from{opacity:0; transform:translateY(4px)}to{opacity:1}}
+  .sihua-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:4px}
+  .sh-col{background:var(--paper); border-radius:10px; padding:10px 4px}
+  .sh-tag{font-size:12px; color:var(--muted); margin-bottom:3px}
+  .sh-tag.ji{color:var(--bad); font-weight:700}
+  .sh-star{font-weight:700; font-size:18px; font-family:"Noto Serif TC",serif}
+  .mnemonic{margin-top:14px; font-size:15px; color:var(--accent); letter-spacing:3px; font-weight:700}
+  .answer-line{font-size:17px; margin:4px 0}
+  .answer-line b{font-family:"Noto Serif TC",serif; font-size:22px; color:var(--accent)}
+  .yy{display:inline-block; padding:1px 9px; border-radius:20px; font-size:13px; font-weight:700; margin-left:4px}
+  .yang{background:#fdeedd; color:var(--gold)} .yin{background:#e7eef0; color:#5a7d86}
+  .btn{
+    border:0; font-family:inherit; font-weight:700; font-size:16px; padding:13px 20px;
+    border-radius:12px; cursor:pointer; transition:.12s; width:100%
+  }
+  .btn:active{transform:scale(.98)}
+  .btn-primary{background:var(--ink); color:#fbf6ee; margin-top:22px}
+  .row{display:flex; gap:10px; width:100%; margin-top:16px}
+  .btn-good{background:var(--good); color:#fff}
+  .btn-bad{background:#d9b8a8; color:#5c2f1c}
+  .choice{display:flex; gap:10px; width:100%; margin-top:24px}
+  .choice .btn{background:var(--paper); border:1.5px solid var(--line); color:var(--ink)}
+  .choice .btn.correct{background:var(--good); color:#fff; border-color:var(--good)}
+  .choice .btn.wrong{background:var(--bad); color:#fff; border-color:var(--bad)}
+  .stat{display:flex; justify-content:space-between; margin-top:16px; font-size:13px; color:var(--muted)}
+  .stat b{color:var(--ink)}
+  .feedback{margin-top:16px; font-weight:700; font-size:18px; min-height:26px}
+  .fb-good{color:var(--good)} .fb-bad{color:var(--bad)}
+  details{margin-top:22px; font-size:13px; color:var(--muted)}
+  summary{cursor:pointer; font-weight:700; color:var(--accent)}
+  details table{width:100%; border-collapse:collapse; margin-top:10px; font-size:13px}
+  details td,details th{border:1px solid var(--line); padding:4px 6px; text-align:center}
+  details th{background:var(--paper)}
+  .hint{font-size:13px; color:var(--muted); margin-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>紫微速記練習</h1>
+    <div class="sub">四化 · 干支 · 大限順逆 — 對齊你流派版本（庚＝陽武同相）</div>
+  </header>
+
+  <div class="tabs">
+    <button data-mode="sihua" class="on">四化</button>
+    <button data-mode="ganzhi">干支</button>
+    <button data-mode="shunni">順逆</button>
+    <button data-mode="combo">綜合</button>
+  </div>
+
+  <div class="card" id="card"></div>
+
+  <div class="stat">
+    <span>本輪：<b id="done">0</b> 題</span>
+    <span>答對率：<b id="rate">—</b></span>
+    <span>待複習：<b id="queue">0</b></span>
+  </div>
+
+  <details>
+    <summary>📖 速查表（口訣 + 對照）</summary>
+    <table>
+      <tr><th>干</th><th>祿</th><th>權</th><th>科</th><th>忌</th><th>口訣</th></tr>
+      <tr><td>甲</td><td>廉貞</td><td>破軍</td><td>武曲</td><td>太陽</td><td>廉破武陽</td></tr>
+      <tr><td>乙</td><td>天機</td><td>天梁</td><td>紫微</td><td>太陰</td><td>機梁紫陰</td></tr>
+      <tr><td>丙</td><td>天同</td><td>天機</td><td>文昌</td><td>廉貞</td><td>同機昌廉</td></tr>
+      <tr><td>丁</td><td>太陰</td><td>天同</td><td>天機</td><td>巨門</td><td>陰同機巨</td></tr>
+      <tr><td>戊</td><td>貪狼</td><td>太陰</td><td>右弼</td><td>天機</td><td>貪陰右機</td></tr>
+      <tr><td>己</td><td>武曲</td><td>貪狼</td><td>天梁</td><td>文曲</td><td>武貪梁曲</td></tr>
+      <tr><td>庚</td><td>太陽</td><td>武曲</td><td>天同</td><td>天相</td><td>陽武同相</td></tr>
+      <tr><td>辛</td><td>巨門</td><td>太陽</td><td>文曲</td><td>文昌</td><td>巨陽曲昌</td></tr>
+      <tr><td>壬</td><td>天梁</td><td>紫微</td><td>左輔</td><td>武曲</td><td>梁紫左武</td></tr>
+      <tr><td>癸</td><td>破軍</td><td>巨門</td><td>太陰</td><td>貪狼</td><td>破巨陰貪</td></tr>
+    </table>
+    <table>
+      <tr><th>年mod10<br>(個位)</th><td>4</td><td>5</td><td>6</td><td>7</td><td>8</td><td>9</td><td>0</td><td>1</td><td>2</td><td>3</td></tr>
+      <tr><th>天干</th><td>甲</td><td>乙</td><td>丙</td><td>丁</td><td>戊</td><td>己</td><td>庚</td><td>辛</td><td>壬</td><td>癸</td></tr>
+    </table>
+    <table>
+      <tr><th>年mod12</th><td>4</td><td>5</td><td>6</td><td>7</td><td>8</td><td>9</td><td>10</td><td>11</td><td>0</td><td>1</td><td>2</td><td>3</td></tr>
+      <tr><th>地支</th><td>子</td><td>丑</td><td>寅</td><td>卯</td><td>辰</td><td>巳</td><td>午</td><td>未</td><td>申</td><td>酉</td><td>戌</td><td>亥</td></tr>
+    </table>
+    <p style="margin-top:10px">兩表同招：餘數查表，都從<b>餘4＝甲子</b>起算（干÷10、支÷12）。<br>
+    陰陽：個位偶＝陽、奇＝陰　｜　子年(鼠)錨：2008 / 2020<br>
+    順逆：<b style="color:var(--accent)">陽男陰女順，陰男陽女逆</b>（男：偶順奇逆；女：反過來）</p>
+  </details>
+</div>
+
+<script>
+const TIANGAN = ["甲","乙","丙","丁","戊","己","庚","辛","壬","癸"];
+const DIZHI   = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
+const ZODIAC  = ["鼠","牛","虎","兔","龍","蛇","馬","羊","猴","雞","狗","豬"];
+const SIHUA = {
+  "甲":["廉貞","破軍","武曲","太陽"], "乙":["天機","天梁","紫微","太陰"],
+  "丙":["天同","天機","文昌","廉貞"], "丁":["太陰","天同","天機","巨門"],
+  "戊":["貪狼","太陰","右弼","天機"], "己":["武曲","貪狼","天梁","文曲"],
+  "庚":["太陽","武曲","天同","天相"], "辛":["巨門","太陽","文曲","文昌"],
+  "壬":["天梁","紫微","左輔","武曲"], "癸":["破軍","巨門","太陰","貪狼"]
+};
+const MNEMONIC = {"甲":"廉破武陽","乙":"機梁紫陰","丙":"同機昌廉","丁":"陰同機巨","戊":"貪陰右機","己":"武貪梁曲","庚":"陽武同相","辛":"巨陽曲昌","壬":"梁紫左武","癸":"破巨陰貪"};
+const HUA = ["祿","權","科","忌"];
+
+// 西元年 → 干支
+function ganOf(y){ return TIANGAN[((y-4)%10+10)%10]; }
+function zhiIdx(y){ return ((y-4)%12+12)%12; }
+function isYang(y){ return y%2===0; }
+
+const $ = s => document.querySelector(s);
+const card = $("#card");
+let mode = "sihua";
+let queue = [];         // 待複習（答錯）
+let done = 0, correct = 0;
+let current = null, revealed = false, answered = false;
+
+function rnd(n){ return Math.floor(Math.random()*n); }
+function pick(arr){ return arr[rnd(arr.length)]; }
+function updateStat(){
+  $("#done").textContent = done;
+  $("#rate").textContent = done ? Math.round(correct/done*100)+"%" : "—";
+  $("#queue").textContent = queue.length;
+}
+function grade(ok){
+  done++; if(ok) correct++; else if(current) queue.push(current);
+  updateStat(); next();
+}
+
+// 取題：優先複習 queue（30% 機率），否則隨機新題
+function gen(){
+  if(queue.length && Math.random()<0.35){ return queue.shift(); }
+  if(mode==="sihua") return {stem: pick(TIANGAN)};
+  // 干支 / 順逆 / 綜合 → 隨機年（1940–2009，避免太極端）
+  const y = 1940 + rnd(70);
+  const g = (mode==="shunni"||mode==="combo") ? pick(["男","女"]) : null;
+  return {year:y, gender:g};
+}
+
+function shunni(year, gender){
+  const yang = isYang(year);
+  // 陽男陰女順；陰男陽女逆
+  const shun = (yang && gender==="男") || (!yang && gender==="女");
+  return shun ? "順行" : "逆行";
+}
+
+function render(){
+  revealed=false; answered=false;
+  if(mode==="sihua")  return renderSihua();
+  if(mode==="ganzhi") return renderGanzhi();
+  if(mode==="shunni") return renderShunni();
+  if(mode==="combo")  return renderCombo();
+}
+
+/* ---------- 四化（翻牌自評） ---------- */
+function renderSihua(){
+  const s = current.stem;
+  card.innerHTML = `
+    <div class="prompt-label">這個天干的四化？（祿 權 科 忌）</div>
+    <div class="big stem">${s}</div>
+    <div class="meta">${isYang(s==='x'?0:TIANGAN.indexOf(s))? '':''}心裡默念口訣，再翻牌</div>
+    <button class="btn btn-primary" id="reveal">顯示答案</button>`;
+  $("#reveal").onclick = ()=>{
+    const a = SIHUA[s];
+    card.innerHTML = `
+      <div class="prompt-label">${s} 的四化</div>
+      <div class="big stem" style="font-size:60px">${s}</div>
+      <div class="reveal">
+        <div class="sihua-grid">
+          ${a.map((star,i)=>`<div class="sh-col">
+            <div class="sh-tag ${i===3?'ji':''}">化${HUA[i]}</div>
+            <div class="sh-star">${star}</div></div>`).join("")}
+        </div>
+        <div class="mnemonic">${MNEMONIC[s]}</div>
+        <div class="row">
+          <button class="btn btn-good" id="g">✓ 會了</button>
+          <button class="btn btn-bad" id="b">✗ 再練</button>
+        </div>
+      </div>`;
+    $("#g").onclick=()=>grade(true);
+    $("#b").onclick=()=>grade(false);
+  };
+}
+
+/* ---------- 干支（翻牌自評） ---------- */
+function renderGanzhi(){
+  const y = current.year;
+  card.innerHTML = `
+    <div class="prompt-label">這一年的天干地支？</div>
+    <div class="big year">${y}</div>
+    <div class="hint">天干：看個位（年mod10）　｜　地支：年mod12（餘4＝子，與甲同起點）</div>
+    <button class="btn btn-primary" id="reveal">顯示答案</button>`;
+  $("#reveal").onclick=()=>{
+    const g=ganOf(y), zi=zhiIdx(y), z=DIZHI[zi], yang=isYang(y);
+    card.innerHTML=`
+      <div class="prompt-label">${y} 年</div>
+      <div class="big year" style="color:var(--accent)">${g}${z}</div>
+      <div class="reveal">
+        <div class="answer-line">天干 <b>${g}</b>　地支 <b>${z}</b>　屬${ZODIAC[zi]}
+          <span class="yy ${yang?'yang':'yin'}">${yang?'陽':'陰'}年</span></div>
+        <div class="meta">個位 ${y%10} → ${g}　｜　年mod12 = ${y%12} → ${z}</div>
+        <div class="row">
+          <button class="btn btn-good" id="g">✓ 會了</button>
+          <button class="btn btn-bad" id="b">✗ 再練</button>
+        </div>
+      </div>`;
+    $("#g").onclick=()=>grade(true);
+    $("#b").onclick=()=>grade(false);
+  };
+}
+
+/* ---------- 順逆（選擇即時判分） ---------- */
+function renderShunni(){
+  const y=current.year, gd=current.gender, ans=shunni(y,gd);
+  const yang=isYang(y);
+  card.innerHTML=`
+    <div class="prompt-label">大限順行 or 逆行？</div>
+    <div class="big year">${y}<span style="font-size:30px"> 年</span></div>
+    <div class="meta">性別：${gd}生</div>
+    <div class="choice">
+      <button class="btn" data-a="順行">順行</button>
+      <button class="btn" data-a="逆行">逆行</button>
+    </div>
+    <div class="feedback" id="fb"></div>`;
+  card.querySelectorAll(".choice .btn").forEach(b=>{
+    b.onclick=()=>{
+      if(answered) return; answered=true;
+      const ok = b.dataset.a===ans;
+      b.classList.add(ok?"correct":"wrong");
+      if(!ok) card.querySelector(`[data-a="${ans}"]`).classList.add("correct");
+      $("#fb").innerHTML = (ok?'<span class="fb-good">✓ 對</span>':'<span class="fb-bad">✗ 應為 '+ans+'</span>')
+        + `<div class="hint">${yang?'陽':'陰'}年 ${yang?'(偶數)':'(奇數)'} ＋ ${gd} → ${ans}</div>`;
+      done++; if(ok) correct++; else queue.push(current); updateStat();
+      setTimeout(next, ok?750:1700);
+    };
+  });
+}
+
+/* ---------- 綜合一條龍 ---------- */
+function renderCombo(){
+  const y=current.year, gd=current.gender;
+  card.innerHTML=`
+    <div class="prompt-label">一條龍：報西元年 + 性別</div>
+    <div class="big year">${y}</div>
+    <div class="meta">${gd}生 — 心算：干支 / 陰陽 / 順逆 / 該干四化</div>
+    <button class="btn btn-primary" id="reveal">顯示答案</button>`;
+  $("#reveal").onclick=()=>{
+    const g=ganOf(y), zi=zhiIdx(y), z=DIZHI[zi], yang=isYang(y);
+    const sn=shunni(y,gd), a=SIHUA[g];
+    card.innerHTML=`
+      <div class="prompt-label">${y} ${gd}生</div>
+      <div class="big year" style="color:var(--accent); font-size:46px">${g}${z}年 · ${gd}</div>
+      <div class="reveal">
+        <div class="answer-line">${g}${z}　屬${ZODIAC[zi]}
+          <span class="yy ${yang?'yang':'yin'}">${yang?'陽':'陰'}${gd}</span>
+          → 大限 <b style="font-size:18px">${sn}</b></div>
+        <div class="sihua-grid" style="margin-top:14px">
+          ${a.map((star,i)=>`<div class="sh-col">
+            <div class="sh-tag ${i===3?'ji':''}">化${HUA[i]}</div>
+            <div class="sh-star">${star}</div></div>`).join("")}
+        </div>
+        <div class="mnemonic">${g}：${MNEMONIC[g]}</div>
+        <div class="row">
+          <button class="btn btn-good" id="gg">✓ 全對</button>
+          <button class="btn btn-bad" id="bb">✗ 再練</button>
+        </div>
+      </div>`;
+    $("#gg").onclick=()=>grade(true);
+    $("#bb").onclick=()=>grade(false);
+  };
+}
+
+function next(){ current=gen(); render(); }
+
+// 分頁切換
+document.querySelectorAll(".tabs button").forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("on"));
+    btn.classList.add("on");
+    mode=btn.dataset.mode;
+    queue=[]; done=0; correct=0; updateStat();
+    next();
+  };
+});
+
+next(); updateStat();
+</script>
+</body>
+</html>
