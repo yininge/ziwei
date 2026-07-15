@@ -28,6 +28,26 @@
     font-weight:700; font-size:14px; padding:9px 4px; border-radius:10px; cursor:pointer; transition:.15s
   }
   .tabs button.on{background:var(--card); color:var(--ink); box-shadow:0 1px 4px rgba(0,0,0,.08)}
+  .poolbar{margin:0 0 14px}
+  .poolbar .pl{font-size:13px; color:var(--muted); font-weight:700; text-align:center; margin-bottom:8px}
+  .poolbar .pl em{font-style:normal; color:var(--accent)}
+  .chips{display:flex; flex-wrap:wrap; gap:6px; justify-content:center}
+  .chip{
+    min-width:34px; text-align:center; font-family:"Noto Serif TC",serif; font-weight:700;
+    font-size:16px; padding:4px 8px; border-radius:9px; border:1.5px solid var(--line);
+    background:var(--card); color:var(--muted)
+  }
+  .chip.active{color:var(--ink)}
+  .chip.master{background:var(--good); color:#fff; border-color:var(--good)}
+  .chip.locked{opacity:.32}
+  .add-wrap{display:flex; justify-content:center; margin-top:11px}
+  .add-btn{
+    border:1.5px solid var(--accent); background:var(--card); color:var(--accent);
+    font-family:inherit; font-weight:700; font-size:14px; padding:7px 16px; border-radius:10px; cursor:pointer; transition:.15s
+  }
+  .add-btn:disabled{opacity:.45; cursor:default; border-color:var(--line); color:var(--muted)}
+  .add-btn.ready{background:var(--accent); color:#fff; animation:pulse 1.3s ease-in-out infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(181,86,47,.45)}50%{box-shadow:0 0 0 7px rgba(181,86,47,0)}}
   .card{
     background:var(--card); border:1px solid var(--line); border-radius:18px;
     padding:26px 22px; box-shadow:0 4px 18px rgba(120,90,50,.07); min-height:300px;
@@ -92,6 +112,8 @@
     <button data-mode="combo">綜合</button>
   </div>
 
+  <div class="poolbar" id="poolbar"></div>
+
   <div class="card" id="card"></div>
 
   <div class="stat">
@@ -155,6 +177,17 @@ let queue = [];         // 待複習（答錯）
 let done = 0, correct = 0;
 let current = null, revealed = false, answered = false;
 
+// 四化漸進：從 2 個天干開始，連續答對 MASTER 次算背熟，全熟才提示加下一個
+const MASTER = 3;
+let poolSize = 2;       // 目前解鎖到第幾個天干（甲乙丙…）
+let streak = {};        // 天干 → 連續答對次數
+try{
+  const s = JSON.parse(localStorage.getItem("ziwei_sihua")||"{}");
+  if(s.poolSize) poolSize = Math.min(10, Math.max(2, s.poolSize));
+  if(s.streak) streak = s.streak;
+}catch(e){}
+function saveProg(){ try{ localStorage.setItem("ziwei_sihua", JSON.stringify({poolSize, streak})); }catch(e){} }
+
 function rnd(n){ return Math.floor(Math.random()*n); }
 function pick(arr){ return arr[rnd(arr.length)]; }
 function updateStat(){
@@ -164,13 +197,18 @@ function updateStat(){
 }
 function grade(ok){
   done++; if(ok) correct++; else if(current) queue.push(current);
+  if(mode==="sihua" && current && current.stem){
+    const s=current.stem;
+    streak[s] = ok ? (streak[s]||0)+1 : 0;
+    saveProg();
+  }
   updateStat(); next();
 }
 
 // 取題：優先複習 queue（30% 機率），否則隨機新題
 function gen(){
   if(queue.length && Math.random()<0.35){ return queue.shift(); }
-  if(mode==="sihua") return {stem: pick(TIANGAN)};
+  if(mode==="sihua") return {stem: pick(TIANGAN.slice(0, poolSize))};
   // 干支 / 順逆 / 綜合 → 隨機年（1940–2009，避免太極端）
   const y = 1940 + rnd(70);
   const g = (mode==="shunni"||mode==="combo") ? pick(["男","女"]) : null;
@@ -184,8 +222,34 @@ function shunni(year, gender){
   return shun ? "順行" : "逆行";
 }
 
+// 四化進度條：顯示解鎖到哪、哪些已背熟、可否加下一個
+function updatePoolbar(){
+  const bar=$("#poolbar");
+  if(mode!=="sihua"){ bar.style.display="none"; return; }
+  bar.style.display="block";
+  const active = TIANGAN.slice(0, poolSize);
+  const allMaster = active.every(g=>(streak[g]||0)>=MASTER);
+  const canAdd = poolSize<10;
+  const ready = allMaster && canAdd;
+  const chips = TIANGAN.map((g,i)=>{
+    if(i>=poolSize) return `<span class="chip locked">${g}</span>`;
+    const m=(streak[g]||0)>=MASTER;
+    return `<span class="chip active ${m?'master':''}">${g}</span>`;
+  }).join("");
+  bar.innerHTML=`
+    <div class="pl">四化練習中：<em>${poolSize} / 10</em> 干${ready?'　· 都熟了，可以加下一個 →':''}</div>
+    <div class="chips">${chips}</div>
+    <div class="add-wrap">
+      <button class="add-btn ${ready?'ready':''}" id="addgan" ${canAdd?'':'disabled'}>
+        ${canAdd?`＋ 加入下一個（${TIANGAN[poolSize]}）`:'✓ 十干已全部解鎖'}
+      </button>
+    </div>`;
+  if(canAdd) $("#addgan").onclick=()=>{ poolSize++; saveProg(); updatePoolbar(); next(); };
+}
+
 function render(){
   revealed=false; answered=false;
+  updatePoolbar();
   if(mode==="sihua")  return renderSihua();
   if(mode==="ganzhi") return renderGanzhi();
   if(mode==="shunni") return renderShunni();
