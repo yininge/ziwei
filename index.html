@@ -3,7 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>紫微速記練習 · Yi</title>
+<title>斗數堂 · Yi</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="斗數堂">
+<meta name="theme-color" content="#f4ece0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@700;900&display=swap" rel="stylesheet">
 <style>
@@ -28,26 +35,6 @@
     font-weight:700; font-size:14px; padding:9px 4px; border-radius:10px; cursor:pointer; transition:.15s
   }
   .tabs button.on{background:var(--card); color:var(--ink); box-shadow:0 1px 4px rgba(0,0,0,.08)}
-  .poolbar{margin:0 0 14px}
-  .poolbar .pl{font-size:13px; color:var(--muted); font-weight:700; text-align:center; margin-bottom:8px}
-  .poolbar .pl em{font-style:normal; color:var(--accent)}
-  .chips{display:flex; flex-wrap:wrap; gap:6px; justify-content:center}
-  .chip{
-    min-width:34px; text-align:center; font-family:"Noto Serif TC",serif; font-weight:700;
-    font-size:16px; padding:4px 8px; border-radius:9px; border:1.5px solid var(--line);
-    background:var(--card); color:var(--muted)
-  }
-  .chip.active{color:var(--ink)}
-  .chip.master{background:var(--good); color:#fff; border-color:var(--good)}
-  .chip.locked{opacity:.32}
-  .add-wrap{display:flex; justify-content:center; margin-top:11px}
-  .add-btn{
-    border:1.5px solid var(--accent); background:var(--card); color:var(--accent);
-    font-family:inherit; font-weight:700; font-size:14px; padding:7px 16px; border-radius:10px; cursor:pointer; transition:.15s
-  }
-  .add-btn:disabled{opacity:.45; cursor:default; border-color:var(--line); color:var(--muted)}
-  .add-btn.ready{background:var(--accent); color:#fff; animation:pulse 1.3s ease-in-out infinite}
-  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(181,86,47,.45)}50%{box-shadow:0 0 0 7px rgba(181,86,47,0)}}
   .card{
     background:var(--card); border:1px solid var(--line); border-radius:18px;
     padding:26px 22px; box-shadow:0 4px 18px rgba(120,90,50,.07); min-height:300px;
@@ -96,30 +83,91 @@
   details td,details th{border:1px solid var(--line); padding:4px 6px; text-align:center}
   details th{background:var(--paper)}
   .hint{font-size:13px; color:var(--muted); margin-top:14px}
+
+  /* ---- 斗數堂 ---- */
+  .scene{position:relative; width:100%; aspect-ratio:3/2; overflow:hidden; border-radius:14px; background:var(--line); margin-top:10px}
+  .scene img{position:absolute; left:0; top:0; width:100%; height:100%; object-fit:cover}
+  .scene .dirtimg{opacity:0; transition:opacity .6s}
+  .scene .guest{left:30%; bottom:5%; top:auto; width:auto; height:52%; object-fit:contain}
+  .daytag{position:absolute; top:8px; right:8px; background:rgba(44,39,34,.72); color:#fbf6ee; font-size:12px; font-weight:700; padding:2px 10px; border-radius:20px}
+  .card.flat{min-height:0; align-items:stretch; text-align:left; justify-content:flex-start}
+  .card.flat .big,.card.flat .prompt-label{text-align:center}
+  .qbig{font-size:44px}
+  .card .gtop{width:100%}
+  .gtop{display:flex; align-items:center; gap:8px}
+  .gtop b{flex:1; font-family:"Noto Serif TC",serif}
+  .tier{font-size:12px; font-weight:700; padding:1px 9px; border-radius:20px; background:var(--paper); color:var(--muted)}
+  .tier.t2{background:#f6e7c5; color:var(--gold)} .tier.t3{background:#f0d8cc; color:var(--accent)}
+  .pay{color:var(--gold); font-weight:700; font-size:14px}
+  .ask{font-size:14px; margin:8px 0 14px}
+  .grid2,.grid3{display:grid; gap:10px}
+  .grid2{grid-template-columns:1fr 1fr} .grid3{grid-template-columns:repeat(3,1fr)}
+  .choice .btn.sb{display:flex; flex-direction:column; align-items:center; padding:6px 4px}
+  .sb .tg{font-size:12px; min-height:18px; color:inherit; font-weight:700}
+  .srow{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px dashed var(--line)}
+  .srow:last-child{border-bottom:0}
+  .sg{font-family:"Noto Serif TC",serif; font-weight:900; font-size:22px; width:28px}
+  .sm{flex:1; letter-spacing:2px; color:var(--accent); font-weight:700; font-size:15px}
+  .sm.off{color:var(--muted)}
+  .lv{font-size:12px; font-weight:700; padding:1px 9px; border-radius:20px}
+  .lv0{background:#ece6dc; color:var(--muted)} .lv1{background:#f0d8cc; color:var(--accent)} .lv2{background:#f6e7c5; color:var(--gold)}
+  .mini{border:1.5px solid var(--accent); background:var(--card); color:var(--accent); font-family:inherit; font-weight:700; font-size:13px; padding:5px 10px; border-radius:9px; cursor:pointer}
+  .mini:disabled{opacity:.45; cursor:default; border-color:var(--line); color:var(--muted)}
+  .nameinput{width:100%; margin-top:16px; padding:12px; font:inherit; font-size:16px; border:1.5px solid var(--line); border-radius:12px; background:var(--paper); color:var(--ink); text-align:center}
+  .reset{border:0; background:transparent; color:var(--muted); font:inherit; font-size:12px; text-decoration:underline; cursor:pointer; padding:0}
+  .tier.back{background:var(--gold); color:#fff}
+  .srow.go{cursor:pointer}
+  .bar{display:flex; align-items:center; gap:8px; font-size:14px; margin:6px 0; width:100%}
+  .bar .bl{width:52px; color:var(--muted); text-align:right}
+  .bar .bt{flex:1; height:14px; background:#ece1d1; border-radius:7px; overflow:hidden}
+  .bar .bt i{display:block; height:100%; width:0; border-radius:7px; transition:width .6s ease}
+  .bar .bv{min-width:72px; font-weight:700}
+  .cols{display:flex; align-items:flex-end; gap:6px; height:80px; width:100%; margin-top:6px}
+  .cols .c{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; font-size:11px; color:var(--muted)}
+  .cols .c span{line-height:18px}
+  .cols .c i{display:block; width:100%; height:0; background:var(--line); border-radius:4px 4px 0 0; transition:height .6s ease}
+  .cols .c.now i{background:var(--accent)}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>紫微速記練習</h1>
-    <div class="sub">四化 · 干支 · 大限順逆 — 對齊你流派版本（庚＝陽武同相）</div>
+    <h1 id="hname">斗數堂</h1>
+    <div class="sub" id="hsub"></div>
   </header>
 
-  <div class="tabs">
-    <button data-mode="sihua" class="on">四化</button>
-    <button data-mode="ganzhi">干支</button>
-    <button data-mode="shunni">順逆</button>
-    <button data-mode="combo">綜合</button>
+  <div class="scene">
+    <img class="bg" id="sbg" src="assets/scene-1.jpg" alt="">
+    <img class="dirtimg" id="sdirt" src="assets/dirty-1.jpg" alt="">
+    <img class="guest" id="sguest" src="assets/guest-1.png" alt="" style="display:none">
+    <div class="daytag" id="daytag">營業中</div>
   </div>
 
-  <div class="poolbar" id="poolbar"></div>
+  <div class="tabs panel-tabs" id="ptabs" style="display:none">
+    <button data-p="serve" class="on">接客</button>
+    <button data-p="study">書齋</button>
+    <button data-p="shop">門面</button>
+    <button data-p="practice">練功房</button>
+  </div>
 
-  <div class="card" id="card"></div>
+  <div class="panel" id="panel"></div>
 
-  <div class="stat">
-    <span>本輪：<b id="done">0</b> 題</span>
-    <span>答對率：<b id="rate">—</b></span>
-    <span>待複習：<b id="queue">0</b></span>
+  <div id="practice" hidden>
+    <div class="hint" style="text-align:center; margin:0 0 12px">純練習，不算銀兩。</div>
+    <div class="tabs" style="margin-top:0">
+      <button data-mode="sihua" class="on">四化</button>
+      <button data-mode="ganzhi">干支</button>
+      <button data-mode="shunni">順逆</button>
+      <button data-mode="combo">綜合</button>
+    </div>
+
+    <div class="card" id="card"></div>
+
+    <div class="stat">
+      <span>本輪：<b id="done">0</b> 題</span>
+      <span>答對率：<b id="rate">—</b></span>
+      <span>待複習：<b id="queue">0</b></span>
+    </div>
   </div>
 
   <details>
@@ -148,6 +196,7 @@
     <p style="margin-top:10px">兩表同招：餘數查表，都從<b>餘4＝甲子</b>起算（干÷10、支÷12）。<br>
     陰陽：個位偶＝陽、奇＝陰　｜　子年(鼠)錨：2008 / 2020<br>
     順逆：<b style="color:var(--accent)">陽男陰女順，陰男陽女逆</b>（男：偶順奇逆；女：反過來）</p>
+    <p style="margin-top:10px"><button class="reset" id="reset">重置斗數堂</button></p>
   </details>
 </div>
 
@@ -172,21 +221,14 @@ function isYang(y){ return y%2===0; }
 
 const $ = s => document.querySelector(s);
 const card = $("#card");
+// 暫態（不存檔）：panel 目前分頁、timers 所有 setTimeout、cur 接待中、clean 打掃中、learn 學習卡的干
+const U = {panel:"serve", timers:[], cur:null, clean:null, learn:null, intro:null, newName:"", last:null, open:false, ledger:false};
+function later(fn,ms){ U.timers.push(setTimeout(fn,ms)); }
+function clearTimers(){ U.timers.forEach(clearTimeout); U.timers=[]; }
 let mode = "sihua";
 let queue = [];         // 待複習（答錯）
 let done = 0, correct = 0;
 let current = null, revealed = false, answered = false;
-
-// 四化漸進：從 2 個天干開始，連續答對 MASTER 次算背熟，全熟才提示加下一個
-const MASTER = 3;
-let poolSize = 2;       // 目前解鎖到第幾個天干（甲乙丙…）
-let streak = {};        // 天干 → 連續答對次數
-try{
-  const s = JSON.parse(localStorage.getItem("ziwei_sihua")||"{}");
-  if(s.poolSize) poolSize = Math.min(10, Math.max(2, s.poolSize));
-  if(s.streak) streak = s.streak;
-}catch(e){}
-function saveProg(){ try{ localStorage.setItem("ziwei_sihua", JSON.stringify({poolSize, streak})); }catch(e){} }
 
 function rnd(n){ return Math.floor(Math.random()*n); }
 function pick(arr){ return arr[rnd(arr.length)]; }
@@ -197,18 +239,13 @@ function updateStat(){
 }
 function grade(ok){
   done++; if(ok) correct++; else if(current) queue.push(current);
-  if(mode==="sihua" && current && current.stem){
-    const s=current.stem;
-    streak[s] = ok ? (streak[s]||0)+1 : 0;
-    saveProg();
-  }
   updateStat(); next();
 }
 
 // 取題：優先複習 queue（30% 機率），否則隨機新題
 function gen(){
   if(queue.length && Math.random()<0.35){ return queue.shift(); }
-  if(mode==="sihua") return {stem: pick(TIANGAN.slice(0, poolSize))};
+  if(mode==="sihua") return {stem: pick(TIANGAN)};
   // 干支 / 順逆 / 綜合 → 隨機年（1940–2009，避免太極端）
   const y = 1940 + rnd(70);
   const g = (mode==="shunni"||mode==="combo") ? pick(["男","女"]) : null;
@@ -222,34 +259,8 @@ function shunni(year, gender){
   return shun ? "順行" : "逆行";
 }
 
-// 四化進度條：顯示解鎖到哪、哪些已背熟、可否加下一個
-function updatePoolbar(){
-  const bar=$("#poolbar");
-  if(mode!=="sihua"){ bar.style.display="none"; return; }
-  bar.style.display="block";
-  const active = TIANGAN.slice(0, poolSize);
-  const allMaster = active.every(g=>(streak[g]||0)>=MASTER);
-  const canAdd = poolSize<10;
-  const ready = allMaster && canAdd;
-  const chips = TIANGAN.map((g,i)=>{
-    if(i>=poolSize) return `<span class="chip locked">${g}</span>`;
-    const m=(streak[g]||0)>=MASTER;
-    return `<span class="chip active ${m?'master':''}">${g}</span>`;
-  }).join("");
-  bar.innerHTML=`
-    <div class="pl">四化練習中：<em>${poolSize} / 10</em> 干${ready?'　· 都熟了，可以加下一個 →':''}</div>
-    <div class="chips">${chips}</div>
-    <div class="add-wrap">
-      <button class="add-btn ${ready?'ready':''}" id="addgan" ${canAdd?'':'disabled'}>
-        ${canAdd?`＋ 加入下一個（${TIANGAN[poolSize]}）`:'✓ 十干已全部解鎖'}
-      </button>
-    </div>`;
-  if(canAdd) $("#addgan").onclick=()=>{ poolSize++; saveProg(); updatePoolbar(); next(); };
-}
-
 function render(){
   revealed=false; answered=false;
-  updatePoolbar();
   if(mode==="sihua")  return renderSihua();
   if(mode==="ganzhi") return renderGanzhi();
   if(mode==="shunni") return renderShunni();
@@ -335,7 +346,7 @@ function renderShunni(){
       $("#fb").innerHTML = (ok?'<span class="fb-good">✓ 對</span>':'<span class="fb-bad">✗ 應為 '+ans+'</span>')
         + `<div class="hint">${yang?'陽':'陰'}年 ${yang?'(偶數)':'(奇數)'} ＋ ${gd} → ${ans}</div>`;
       done++; if(ok) correct++; else queue.push(current); updateStat();
-      setTimeout(next, ok?750:1700);
+      later(next, ok?750:1700);
     };
   });
 }
@@ -377,9 +388,9 @@ function renderCombo(){
 function next(){ current=gen(); render(); }
 
 // 分頁切換
-document.querySelectorAll(".tabs button").forEach(btn=>{
+document.querySelectorAll("#practice .tabs button").forEach(btn=>{
   btn.onclick=()=>{
-    document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("on"));
+    document.querySelectorAll("#practice .tabs button").forEach(b=>b.classList.remove("on"));
     btn.classList.add("on");
     mode=btn.dataset.mode;
     queue=[]; done=0; correct=0; updateStat();
@@ -387,7 +398,398 @@ document.querySelectorAll(".tabs button").forEach(btn=>{
   };
 });
 
-next(); updateStat();
+/* ================= 斗數堂（經營層） ================= */
+const KEY = "ziwei_shop";
+const PRICE = {"乙":50,"丙":80,"丁":120,"戊":160,"己":200,"庚":250,"辛":300,"壬":350,"癸":400};
+const TIER = ["","街坊","商賈","官府"];
+const NAMES = {
+  1:["王阿婆","隔壁陳伯","賣菜的阿珠","書生小李","挑水的阿福"],
+  2:["綢緞莊林老闆","米行張掌櫃","船行吳東家","茶莊黃娘子"],
+  3:["縣太爺的師爺","巡撫大人","京城來的御史","兵馬司的周大人"]
+};
+const PAY = {1:[10,1,0], 2:[30,2,1], 3:[60,4,3]};   // [銀兩, 名聲+, 失敗名聲−]
+// 四化意涵照課程筆記：祿＝增加、多出來；權＝掌控、加重；科＝名聲、曝光、被看見；忌＝空缺、覺得不夠
+const MEAN = {"祿":"多出來的","權":"掌控","科":"被看見","忌":"空缺"};
+const ASK1 = {
+  "祿":"今年手頭會不會寬一點？", "權":"家裡大小事我做不做得了主？",
+  "科":"我做的事會不會被人看見？", "忌":"老覺得日子缺了一塊，缺在哪？"
+};
+const FACADE = ["破舊小店","整潔小鋪","氣派名館"];
+const UPGRADE = [["翻修門面",150],["擴建名館",400]];
+const ALL_STARS = [...new Set(Object.values(SIHUA).flat())];
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const DAY_GUESTS = [8, 10, 12];   // 一個營業日接幾位客人，依門面 Lv1/2/3
+
+function shuf(a){ return a.map(x=>[Math.random(),x]).sort((p,q)=>p[0]-q[0]).map(p=>p[1]); }
+function mkChoices(ans,pool,n){ return shuf([ans, ...shuf(pool.filter(x=>x!==ans)).slice(0,n-1)]); }
+function fmtDate(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function today(){ return fmtDate(new Date()); }
+function yesterday(){ const d=new Date(); d.setDate(d.getDate()-1); return fmtDate(d); }
+function dayNum(s){ const [y,m,d]=s.split("-").map(Number); return Date.UTC(y,m-1,d)/864e5; }
+
+// 存檔：S = {name,coins,rep,opened,facade,lastOpen,dirt,dirtDay,hist,served,streak,streakDate,ledger{date,served,ok,wrong,income,byG,rep0},days[],redo}；null = 還沒存檔
+let S = null;
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+function loadS(){
+  let s; try{ s = JSON.parse(localStorage.getItem(KEY)); }catch(e){}
+  if(!s || typeof s!=="object") return null;
+  const num = v => Math.max(0, Number(v)||0);
+  const opened = TIANGAN.filter(g=>Array.isArray(s.opened) && s.opened.includes(g));
+  if(!opened.includes("甲")) opened.unshift("甲");
+  const hist = {};
+  TIANGAN.forEach(g=>{ const a = s.hist && s.hist[g]; if(Array.isArray(a)) hist[g] = a.filter(x=>x===0||x===1).slice(-20); });
+  const t = today();
+  const lo = (typeof s.lastOpen==="string" && DATE_RE.test(s.lastOpen)) ? s.lastOpen : null;
+  let dirt = 0;
+  if(lo){
+    dirt = Math.min(5, Math.max(0, dayNum(t)-dayNum(lo)-1));
+    // 同一天重新載入不要讓已掃的級數回彈
+    if(s.dirtDay===t && Number.isFinite(s.dirt)) dirt = Math.min(dirt, Math.max(0, s.dirt));
+  }
+  const sd = (typeof s.streakDate==="string" && DATE_RE.test(s.streakDate)) ? s.streakDate : null;
+  const L = s.ledger && typeof s.ledger==="object" ? s.ledger : {};
+  const ledger = {date:(typeof L.date==="string" && DATE_RE.test(L.date)) ? L.date : null, served:Math.round(num(L.served)), ok:Math.round(num(L.ok)), wrong:{},
+    income:Math.round(num(L.income)), byG:{}, rep0:Number.isFinite(Number(L.rep0)) && L.rep0!==null ? Math.max(0, Number(L.rep0)) : num(s.rep)};
+  TIANGAN.forEach(g=>{ const n = L.wrong && Math.round(num(L.wrong[g])); if(n>0) ledger.wrong[g] = n; });
+  TIANGAN.forEach(g=>{ const a = L.byG && L.byG[g]; if(Array.isArray(a)){ const n = Math.round(num(a[1])); if(n>0) ledger.byG[g] = [Math.min(n, Math.round(num(a[0]))), n]; } });
+  const days = (Array.isArray(s.days) ? s.days : []).filter(d=>d && typeof d.date==="string" && DATE_RE.test(d.date))
+    .map(d=>({date:d.date, income:Math.round(num(d.income)), served:Math.round(num(d.served)), ok:Math.round(num(d.ok))})).slice(-30);
+  const redo = (Array.isArray(s.redo) ? s.redo : []).filter(r=>{
+    const u = r && r.gu;
+    return u && Number.isFinite(r.due) && [1,2,3].includes(u.tier) && TIANGAN.includes(u.g) && typeof u.name==="string" && Number.isFinite(u.y)
+      && (u.tier===2 || HUA.includes(u.h)) && (u.tier!==3 || ["男","女"].includes(u.sex));
+  }).slice(0,50);
+  return {name:String(s.name||"學徒").slice(0,12), coins:num(s.coins), rep:num(s.rep), opened,
+    facade:Math.min(3, Math.max(1, Math.round(Number(s.facade))||1)), lastOpen:lo, dirt, dirtDay:t, hist, served:num(s.served),
+    streak:Math.round(num(s.streak)), streakDate:sd, ledger, days, redo};
+}
+function pushHist(g,ok){
+  const h = S.hist[g] = S.hist[g] || [];
+  h.push(ok?1:0); if(h.length>20) h.splice(0, h.length-20);
+}
+function hallName(){ return S.rep<30?"無名小堂": S.rep<100?"街坊口碑": S.rep<300?"城中名館":"御用斗數堂"; }
+function level(g){
+  const h = S.hist[g]||[];
+  if(h.length<5) return 0;
+  const acc = h.reduce((a,b)=>a+b,0)/h.length;
+  return acc<0.6 ? 0 : acc<0.9 ? 1 : 2;
+}
+
+/* ---------- 畫面骨架 ---------- */
+function renderHeader(){
+  $("#hname").textContent = S ? hallName() : "斗數堂";
+  $("#hsub").textContent = S ? `${S.name}　銀兩 ${S.coins}　名聲 ${S.rep}` : "";
+}
+function renderScene(){
+  const f = S ? S.facade : 1, d = S ? S.dirt : 0;
+  $("#sbg").src = `assets/scene-${f}.jpg`;
+  const di = $("#sdirt"); di.src = `assets/dirty-${f}.jpg`; di.style.opacity = d ? 0.5 + d*0.1 : 0;
+  const gi = $("#sguest");
+  if(S && U.cur){ gi.src = `assets/guest-${U.cur.gu.tier}.png`; gi.style.display = ""; }
+  else gi.style.display = "none";
+  $("#daytag").textContent = d>0 ? `打掃中 ${d} 級` : (S && U.open) ? `營業中 ${S.ledger.served}/${DAY_GUESTS[S.facade-1]}` : "未開張";
+}
+function go(p){
+  clearTimers(); U.cur=null; U.clean=null; U.learn=null; U.ledger=false; U.panel=p;
+  renderPanel();
+}
+function renderPanel(){
+  renderScene();
+  $("#ptabs").style.display = S ? "" : "none";
+  document.querySelectorAll("#ptabs button").forEach(b=>b.classList.toggle("on", b.dataset.p===U.panel));
+  const isP = !!S && U.panel==="practice";
+  $("#practice").hidden = !isP; $("#panel").hidden = isP;
+  if(isP) return next();
+  if(!S) return U.intro==="open" ? openCard() : nameCard();
+  if(U.learn) return learnCard(U.learn);
+  if(U.panel==="serve"){
+    if(S.dirt>0) return cleanView();
+    if(U.ledger) return ledgerView();
+    return U.open ? serveView() : openDayView();
+  }
+  if(U.panel==="study") return studyView();
+  if(U.panel==="shop") return shopView();
+}
+
+/* ---------- 第一次進來 ---------- */
+function nameCard(){
+  $("#panel").innerHTML = `<div class="card">
+    <div class="big" style="font-size:34px">斗數堂</div>
+    <div class="meta">報上名來，學徒。</div>
+    <input class="nameinput" id="nm" maxlength="12" placeholder="你的名字">
+    <button class="btn btn-primary" id="enter">入堂</button></div>`;
+  $("#enter").onclick = ()=>{ U.newName = $("#nm").value.trim().slice(0,12) || "學徒"; U.intro="open"; renderPanel(); };
+}
+function openCard(){
+  $("#panel").innerHTML = `<div class="card">
+    <div class="answer-line">師父留下一間破舊小店、一本甲干的口訣，就雲遊去了。</div>
+    <div class="meta">接客賺銀兩，修習新的干，把店做大。</div>
+    <button class="btn btn-primary" id="go">開門做生意</button></div>`;
+  $("#go").onclick = ()=>{
+    S = {name:U.newName, coins:0, rep:0, opened:["甲"], facade:1, lastOpen:today(), dirt:0, dirtDay:today(), hist:{}, served:0, streak:0, streakDate:null, ledger:{date:null, served:0, ok:0, wrong:{}, income:0, byG:{}, rep0:0}, days:[], redo:[]};
+    save(); U.learn = "甲"; U.panel = "serve"; renderHeader(); renderPanel();
+  };
+}
+
+/* ---------- 學習卡 ---------- */
+function learnCard(g){
+  $("#panel").innerHTML = `<div class="card">
+    <div class="prompt-label">師父教你${g}干</div>
+    <div class="big" style="font-size:34px">${g}干・${MNEMONIC[g]}</div>
+    <div class="reveal"><div class="sihua-grid">
+      ${SIHUA[g].map((star,i)=>`<div class="sh-col"><div class="sh-tag ${i===3?'ji':''}">化${HUA[i]}</div><div class="sh-star">${star}</div></div>`).join("")}
+    </div>
+    <div class="mnemonic">${MNEMONIC[g]}</div>
+    <button class="btn btn-primary" id="ok">記住了</button></div></div>`;
+  $("#ok").onclick = ()=>{ U.learn = null; renderPanel(); };
+}
+
+/* ---------- 題目共用：四選一／二選一 ---------- */
+function showQ(o){
+  $("#panel").innerHTML = `<div class="card">
+    <div class="prompt-label">${o.label}</div>
+    <div class="big qbig">${o.big}</div>
+    ${o.meta?`<div class="meta">${o.meta}</div>`:""}
+    <div class="choice ${o.cls||""}">${o.opts.map(a=>`<button class="btn" data-a="${a}">${a}</button>`).join("")}</div>
+    <div class="feedback" id="fb"></div></div>`;
+  let locked = false;
+  document.querySelectorAll("#panel .choice .btn").forEach(b=>b.onclick=()=>{
+    if(locked) return; locked = true;
+    const ok = b.dataset.a===o.ans;
+    b.classList.add(ok?"correct":"wrong");
+    if(!ok) document.querySelector(`#panel .choice .btn[data-a="${o.ans}"]`).classList.add("correct");
+    o.cb(ok);
+  });
+}
+const starOf = (g,h) => SIHUA[g][HUA.indexOf(h)];
+
+/* ---------- 打掃 ---------- */
+function cleanView(){
+  if(!U.clean){
+    $("#panel").innerHTML = `<div class="card">
+      <div class="big" style="font-size:26px">店髒了，${S.dirt} 級。<br>打掃一輪 = 答 5 題。</div>
+      <button class="btn btn-primary" id="sweep">開始打掃</button></div>`;
+    $("#sweep").onclick = ()=>{ U.clean = {n:0}; renderPanel(); };
+    return;
+  }
+  const g = pick(S.opened), h = pick(HUA), ans = starOf(g,h);
+  showQ({label:`打掃　第 ${U.clean.n+1} / 5 題`, big:`${g}干 化${h}`, meta:"是哪顆星？",
+    opts:mkChoices(ans,ALL_STARS,4), ans, cls:"grid2", cb:ok=>{
+      pushHist(g,ok); save(); U.clean.n++;
+      if(!ok){ $("#fb").className="feedback fb-bad"; $("#fb").textContent="正解："+ans; }
+      later(()=> U.clean.n>=5 ? cleanDone() : renderPanel(), ok?500:1200);
+    }});
+}
+function cleanDone(){
+  S.dirt--; S.dirtDay = today();
+  if(S.dirt===0) S.lastOpen = today();
+  save(); U.clean = null; renderScene();
+  $("#panel").innerHTML = `<div class="card">
+    <div class="big" style="font-size:30px">掃乾淨一級！</div>
+    <button class="btn btn-primary" id="nx">${S.dirt>0?"繼續打掃":"開門營業！"}</button></div>`;
+  $("#nx").onclick = ()=> S.dirt>0 ? (U.clean={n:0}, renderPanel()) : renderPanel();
+}
+
+/* ---------- 接客 ---------- */
+function newGuest(){
+  const ri = S.redo.findIndex(r=>r.due<=S.served);
+  if(ri>=0){ const gu = S.redo.splice(ri,1)[0].gu; gu.redo = true; return gu; }
+  const w = [[80,20],[50,35],[30,40]][S.facade-1], r = Math.random()*100;
+  const tier = r<w[0] ? 1 : r<w[0]+w[1] ? 2 : 3;
+  const g = pick(S.opened);
+  const used = [U.last];
+  let name; do{ name = pick(NAMES[tier]); }while(used.includes(name));
+  let y; do{ y = 1940+rnd(70); }while(ganOf(y)!==g);
+  const gu = {tier, g, name, y};
+  if(tier!==2) gu.h = pick(HUA);
+  if(tier===3) gu.sex = pick(["男","女"]);
+  return gu;
+}
+function askText(gu){
+  if(gu.tier===1) return `我${gu.y}年生的，${ASK1[gu.h]}<div class="hint">（${gu.y} 年是${gu.g}年）</div>`;
+  if(gu.tier===2) return `我${gu.y}年生的，生意要做大，祿權科忌一次給我說清楚。`;
+  return `本官${gu.y}年生，${gu.sex}命。年干、化${gu.h}、大限順逆，一樣都不能錯。`;
+}
+function serveView(){
+  if(S.ledger.served >= DAY_GUESTS[S.facade-1]) return closeShop();   // 客數已滿（例如接完最後一位後切走分頁）
+  if(!U.cur){ U.cur = {gu:newGuest()}; renderScene(); }
+  questionView(U.cur.gu);
+}
+// 題目卡最上面放客人自我介紹
+function intro(gu){
+  $("#panel .card").insertAdjacentHTML("afterbegin", `<div class="hint">第 ${S.ledger.served+1} / ${DAY_GUESTS[S.facade-1]} 位</div><div class="gtop"><span class="tier t${gu.tier}">${TIER[gu.tier]}</span>${gu.redo?'<span class="tier back">回頭客</span>':""}<b>${gu.name}</b><span class="pay">${PAY[gu.tier][0]} 兩</span></div>
+    <div class="ask">${gu.redo?"上次你答錯了，我再問一次：":""}${askText(gu)}</div>`);
+}
+// 自動打烊：記進營業日歷史（最多 30 筆），再顯示報表
+function closeShop(){
+  const L = S.ledger;
+  S.days.push({date:today(), income:L.income, served:L.served, ok:L.ok});
+  if(S.days.length>30) S.days.splice(0, S.days.length-30);
+  save();
+  U.open = false; clearTimers(); U.cur = null; U.ledger = true; renderPanel();
+}
+function openDayView(){
+  const t = today(), n = S.redo.filter(r=>r.due<=S.served).length;
+  $("#panel").innerHTML = `<div class="card">
+    <div class="big" style="font-size:34px">今日開張</div>
+    <div class="meta">${t} ・ 連續營業 ${S.streakDate===t ? S.streak : (S.streakDate===yesterday() ? S.streak+1 : 1)} 天</div>
+    <div class="hint">${n>0 ? `有 ${n} 位客人回來再問一次。今天會來 ${DAY_GUESTS[S.facade-1]} 位。` : `今天會來 ${DAY_GUESTS[S.facade-1]} 位客人。`}</div>
+    <button class="btn btn-primary" id="opendoor">開張</button></div>`;
+  $("#opendoor").onclick = ()=>{
+    S.ledger = {date:t, served:0, ok:0, wrong:{}, income:0, byG:{}, rep0:S.rep};
+    if(S.streakDate!==t){ S.streak = S.streakDate===yesterday() ? S.streak+1 : 1; S.streakDate = t; }
+    U.open = true; save(); renderPanel();
+  };
+}
+function ledgerView(){
+  const L = S.ledger, nextG = TIANGAN.find(g=>!S.opened.includes(g)), up = UPGRADE[S.facade-1];
+  const aff = (cost,have) => have>=cost ? `<span class="fb-good">買得起</span>` : `<span class="sub">還差 ${cost-have} 兩</span>`;
+  const yd = S.days.slice(0,-1).reverse().find(d=>d.date===yesterday());
+  const mx = Math.max(L.income, yd ? yd.income : 0);
+  const pct = (v,m) => m>0 ? Math.round(v/m*100) : 0;
+  const rate = L.served ? Math.round(L.ok/L.served*100) : 0;
+  const repGain = S.rep - L.rep0;
+  const bar = (lb,w,color,val) => `<div class="bar"><span class="bl">${lb}</span><span class="bt"><i data-w="${w}" style="background:${color}"></i></span><span class="bv">${val}</span></div>`;
+  const gRows = TIANGAN.filter(g=>L.byG[g]).map(g=>bar(g, pct(L.byG[g][0],L.byG[g][1]), "var(--good)", `${L.byG[g][0]}/${L.byG[g][1]}`)).join("");
+  const rec = S.days.slice(-7), rmx = Math.max(...rec.map(d=>d.income), 0);
+  $("#panel").innerHTML = `<div class="card">
+    <div class="big" style="font-size:30px">今日報表</div>
+    <div class="meta">第 ${S.days.length} 個營業日 ・ 連續營業 ${S.streak} 天</div>
+    ${bar("營收", pct(L.income,mx), "var(--gold)", `${L.income} 兩`)}
+    ${yd ? bar("昨日", pct(yd.income,mx), "var(--line)", `${yd.income} 兩`) : ""}
+    ${bar("答對率", rate, "var(--good)", `${L.ok}/${L.served}（${rate}%）`)}
+    <div class="answer-line">名聲　${repGain>=0 ? "+" : ""}${repGain}</div>
+    ${gRows ? `<div class="prompt-label">各干表現</div>${gRows}` : ""}
+    <div class="prompt-label">最近營業日</div>
+    <div class="cols">${rec.map((d,i)=>`<div class="c${i===rec.length-1?" now":""}"><i data-h="${rmx>0 ? d.income/rmx : 0}"></i><span>${d.income}</span></div>`).join("")}</div>
+    <div class="reveal" style="text-align:left">
+      <div class="prompt-label" style="text-align:center">銀兩可以花在</div>
+      <div class="srow go" data-go="study"><span class="sg" style="width:auto">書齋</span><span class="sm">${nextG ? `修習${nextG}　${PRICE[nextG]} 兩` : "十干已修完"}</span>${nextG ? aff(PRICE[nextG],S.coins) : ""}</div>
+      <div class="srow go" data-go="shop"><span class="sg" style="width:auto">門面</span><span class="sm">${up ? `${up[0]}　${up[1]} 兩` : "門面已是最高"}</span>${up ? aff(up[1],S.coins) : ""}</div>
+      <button class="btn btn-primary" id="bye">明天見</button></div></div>`;
+  document.querySelectorAll("#panel [data-go]").forEach(r=>r.onclick=()=>go(r.dataset.go));
+  $("#bye").onclick = ()=>{ U.ledger = false; U.open = false; renderPanel(); };
+  // 掛上後下一個 frame 再設寬高，長條才會長出來
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    document.querySelectorAll("#panel .bt i").forEach(e=>e.style.width = e.dataset.w+"%");
+    document.querySelectorAll("#panel .cols i").forEach(e=>e.style.height = `calc((100% - 18px) * ${e.dataset.h})`);
+  }));
+}
+function questionView(gu){
+  if(gu.tier===1){
+    const ans = starOf(gu.g,gu.h);
+    showQ({label:`問的是化${gu.h}（${MEAN[gu.h]}），是哪顆星？`, big:`${gu.g}干 化${gu.h}`, opts:mkChoices(ans,ALL_STARS,4), ans, cls:"grid2",
+      cb:ok=>finish(ok, `${gu.g}干化${gu.h} ${ans}`, `你翻開命盤告訴${gu.name}：${gu.g}干化${gu.h}，${ans}。`)});
+    return intro(gu);
+  }
+  if(gu.tier===2){ sortView(gu); return intro(gu); }
+  officerQ(gu,0);
+}
+function officerQ(gu,st){
+  const head = `${gu.y} 年生　${gu.sex}命`;
+  let label, ans, opts, cls="grid2";
+  let full;
+  if(st===0){ label="年干是？"; ans=ganOf(gu.y); opts=mkChoices(ans,TIANGAN,4); full=`${gu.y} 年是${ans}年`; }
+  else if(st===1){ label=`${gu.g}干 化${gu.h}（${MEAN[gu.h]}）是哪顆星？`; ans=starOf(gu.g,gu.h); opts=mkChoices(ans,ALL_STARS,4); full=`${gu.g}干化${gu.h} ${ans}`; }
+  else { label="大限順行還是逆行？"; ans=shunni(gu.y,gu.sex); opts=["順行","逆行"]; cls=""; full=`${isYang(gu.y)?"陽":"陰"}${gu.sex} → ${ans}`; }
+  showQ({label, big:head, opts, ans, cls, cb:ok=>{
+    if(!ok) finish(false,full);
+    else if(st<2) later(()=>officerQ(gu,st+1), 500);
+    else finish(true, null, `你答得一字不差，${gu.name}很滿意。`);
+  }});
+  intro(gu);
+}
+function sortView(gu){
+  const cor = SIHUA[gu.g];
+  const stars = shuf([...cor, ...shuf(ALL_STARS.filter(s=>!cor.includes(s))).slice(0,2)]);
+  let step = 0, locked = false;
+  $("#panel").innerHTML = `<div class="card">
+    <div class="prompt-label">算出年干，依 祿權科忌 順序點</div>
+    <div class="big qbig">${gu.y} 年生</div>
+    <div class="choice grid3">${stars.map(s=>`<button class="btn sb" data-a="${s}"><small class="tg"></small><span>${s}</span></button>`).join("")}</div>
+    <div class="feedback" id="fb"></div></div>`;
+  document.querySelectorAll("#panel .choice .btn").forEach(b=>b.onclick=()=>{
+    if(locked || b.disabled) return;
+    if(b.dataset.a===cor[step]){
+      b.classList.add("correct"); b.querySelector(".tg").textContent = HUA[step]; b.disabled = true; step++;
+      if(step===4) finish(true, null, `你告訴${gu.name}：${gu.g}干，${MNEMONIC[gu.g]}。`);
+    } else {
+      locked = true; b.classList.add("wrong");
+      later(()=>finish(false, `${gu.g}干：`+HUA.map((h,i)=>`${h} ${cor[i]}`).join("・")), 300);
+    }
+  });
+}
+function finish(ok, ans, said){
+  const gu = U.cur.gu, [coins,gain,pen] = PAY[gu.tier];
+  if(ok){ S.coins += coins; S.rep += gain; } else S.rep = Math.max(0, S.rep-pen);
+  S.served++; pushHist(gu.g, ok); S.lastOpen = today();
+  S.ledger.served++;
+  const bg = S.ledger.byG[gu.g] = S.ledger.byG[gu.g] || [0,0];
+  bg[1]++;
+  if(ok){ S.ledger.ok++; S.ledger.income += coins; bg[0]++; } else S.ledger.wrong[gu.g] = (S.ledger.wrong[gu.g]||0)+1;
+  if(!ok){
+    const due = S.served + 3 + rnd(3), same = S.redo.find(r=>r.gu.name===gu.name && r.gu.g===gu.g && r.gu.h===gu.h);
+    if(same) same.due = due; else S.redo.push({gu:{...gu}, due});
+  }
+  save(); renderHeader(); renderScene();
+  const fb = $("#fb");
+  fb.className = "feedback " + (ok?"fb-good":"fb-bad");
+  fb.innerHTML = ok ? `${said}<br>付了 ${coins} 兩，名聲 +${gain}` : `${gu.name}皺著眉走了。<br>正解：${ans}`;
+  const full = S.ledger.served >= DAY_GUESTS[S.facade-1];
+  fb.insertAdjacentHTML("afterend", `<button class="btn btn-primary" id="nextg">${full ? "打烊看報表" : "下一位"}</button>`);
+  // 按鈕與自動計時只能走一次：先清計時器，避免按了之後計時器再換一次人
+  let moved = false;
+  const nextG = ()=>{ if(moved) return; moved = true; clearTimers();
+    if(full) return closeShop();
+    U.last = gu.name; U.cur = null; renderPanel(); };
+  $("#nextg").onclick = nextG;
+  later(nextG, full ? 2400 : ok ? 1200 : 2400);
+}
+
+/* ---------- 書齋 ---------- */
+function studyView(){
+  const nextG = TIANGAN.find(g=>!S.opened.includes(g));
+  $("#panel").innerHTML = `<div class="card flat">${TIANGAN.map(g=>{
+    if(S.opened.includes(g)){
+      const l = level(g);
+      return `<div class="srow"><span class="sg">${g}</span><span class="sm">${MNEMONIC[g]}</span>
+        <span class="lv lv${l}">${["生","熟","精"][l]}</span><button class="mini" data-r="${g}">複習</button></div>`;
+    }
+    return `<div class="srow"><span class="sg">${g}</span><span class="sm off">未修</span>
+      <button class="mini" data-b="${g}" ${g===nextG && S.coins>=PRICE[g] ? "" : "disabled"}>修習　${PRICE[g]} 兩</button></div>`;
+  }).join("")}</div>`;
+  document.querySelectorAll("#panel [data-r]").forEach(b=>b.onclick=()=>{ U.learn = b.dataset.r; renderPanel(); });
+  document.querySelectorAll("#panel [data-b]").forEach(b=>b.onclick=()=>{
+    const g = b.dataset.b;
+    if(g!==nextG || S.coins<PRICE[g]) return;
+    S.coins -= PRICE[g]; S.opened.push(g); save(); renderHeader();
+    U.learn = g; renderPanel();
+  });
+}
+
+/* ---------- 門面 ---------- */
+function shopView(){
+  const f = S.facade, up = UPGRADE[f-1];
+  $("#panel").innerHTML = `<div class="card flat">
+    <div class="big" style="font-size:28px">Lv${f}　${FACADE[f-1]}</div>
+    <div class="meta" style="text-align:center">門面越好，有錢的客人越多（商賈、官府），但他們答錯扣的名聲也多。</div>
+    ${up ? `<button class="btn btn-primary" id="up" ${S.coins>=up[1]?"":"disabled"}>${up[0]}　${up[1]} 兩</button>`
+         : `<button class="btn btn-primary" disabled>已是最高</button>`}</div>`;
+  if(up) $("#up").onclick = ()=>{
+    if(S.coins<up[1]) return;
+    S.coins -= up[1]; S.facade++; save(); renderHeader(); renderScene(); shopView();
+  };
+}
+
+/* ---------- 啟動 ---------- */
+document.querySelectorAll("#ptabs button").forEach(b=>b.onclick=()=>go(b.dataset.p));
+$("#reset").onclick = ()=>{
+  if(!confirm("確定要把斗數堂整間拆掉重來？")) return;
+  try{ localStorage.removeItem(KEY); }catch(e){}
+  location.reload();
+};
+S = loadS(); if(S) save();
+renderHeader(); renderPanel();
 </script>
 </body>
 </html>
