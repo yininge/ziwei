@@ -127,6 +127,12 @@
   .cols .c span{line-height:18px}
   .cols .c i{display:block; width:100%; height:0; background:var(--line); border-radius:4px 4px 0 0; transition:height .6s ease}
   .cols .c.now i{background:var(--accent)}
+  .scene .appr{left:6%; bottom:5%; top:auto; width:auto; height:46%; object-fit:contain}
+  .btn:disabled{opacity:.45; cursor:default}
+  .nt{margin-top:4px; letter-spacing:0; font-weight:400}
+  .nm{width:100%; padding:10px; font:inherit; font-size:15px; border:1.5px solid var(--line); border-radius:12px; background:var(--paper); color:var(--ink); resize:none}
+  .nedit{padding:0 0 12px; border-bottom:1px dashed var(--line)}
+  .nedit .nb,.chips{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px}
 </style>
 </head>
 <body>
@@ -139,6 +145,7 @@
   <div class="scene">
     <img class="bg" id="sbg" src="assets/scene-1.jpg" alt="">
     <img class="dirtimg" id="sdirt" src="assets/dirty-1.jpg" alt="">
+    <img class="appr" id="sappr" src="assets/apprentice.png" alt="" style="display:none">
     <img class="guest" id="sguest" src="assets/guest-1.png" alt="" style="display:none">
     <div class="daytag" id="daytag">營業中</div>
   </div>
@@ -222,7 +229,8 @@ function isYang(y){ return y%2===0; }
 const $ = s => document.querySelector(s);
 const card = $("#card");
 // 暫態（不存檔）：panel 目前分頁、timers 所有 setTimeout、cur 接待中、clean 打掃中、learn 學習卡的干
-const U = {panel:"serve", timers:[], cur:null, clean:null, learn:null, intro:null, newName:"", last:null, open:false, ledger:false};
+const U = {panel:"serve", timers:[], cur:null, clean:null, learn:null, learnThen:null, drill:null, justLearned:null, studyMsg:null, intro:null, newName:"", last:null, open:false, ledger:false, chips:false, quiz:null, noteEdit:null};
+const esc = s => String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function later(fn,ms){ U.timers.push(setTimeout(fn,ms)); }
 function clearTimers(){ U.timers.forEach(clearTimeout); U.timers=[]; }
 let mode = "sihua";
@@ -414,11 +422,25 @@ const ASK1 = {
   "祿":"今年手頭會不會寬一點？", "權":"家裡大小事我做不做得了主？",
   "科":"我做的事會不會被人看見？", "忌":"老覺得日子缺了一塊，缺在哪？"
 };
-const FACADE = ["破舊小店","整潔小鋪","氣派名館"];
-const UPGRADE = [["翻修門面",150],["擴建名館",400]];
+const FACADE = ["破舊小店","整潔小鋪","氣派名館","兩進大宅","御賜斗數堂","山門大院"];
+const UPGRADE = [["翻修門面",150],["擴建名館",400],["買下隔壁",900],["恭迎御匾",1800],["開山立院",3200]];
+const MIX = [[80,20],[50,35],[30,40],[25,40],[20,40],[15,40]];   // 街坊%, 商賈%，其餘官府
+const EVENTS = {
+  fair:  {name:"廟會",     text:"街上人潮洶湧，今天多來 4 位客人。"},
+  rain:  {name:"下雨",     text:"雨天客人少，只來一半，但每位客人的名聲加倍。"},
+  rival: {name:"同行踢館", text:"隔壁新開一間命館，今天答錯扣的名聲加倍，答對多賺 5 兩。"},
+  vip:   {name:"貴客臨門", text:"今天來的都是有錢人，商賈與官府比例大增。"},
+  back:  {name:"老客回訪", text:"之前答錯的客人今天全部回來再問一次。"}
+};
 const ALL_STARS = [...new Set(Object.values(SIHUA).flat())];
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const DAY_GUESTS = [8, 10, 12];   // 一個營業日接幾位客人，依門面 Lv1/2/3
+const DAY_GUESTS = [8, 10, 12, 14, 16, 18];   // 一個營業日接幾位客人，依門面 Lv1~6
+// 套用當日事件後的客數；ev 不給就讀今天已開張的事件
+function dayGuests(ev){
+  if(ev===undefined) ev = S.ledger.event;
+  const n = DAY_GUESTS[S.facade-1];
+  return ev==="fair" ? n+4 : ev==="rain" ? Math.ceil(n/2) : n;
+}
 
 function shuf(a){ return a.map(x=>[Math.random(),x]).sort((p,q)=>p[0]-q[0]).map(p=>p[1]); }
 function mkChoices(ans,pool,n){ return shuf([ans, ...shuf(pool.filter(x=>x!==ans)).slice(0,n-1)]); }
@@ -427,7 +449,7 @@ function today(){ return fmtDate(new Date()); }
 function yesterday(){ const d=new Date(); d.setDate(d.getDate()-1); return fmtDate(d); }
 function dayNum(s){ const [y,m,d]=s.split("-").map(Number); return Date.UTC(y,m-1,d)/864e5; }
 
-// 存檔：S = {name,coins,rep,opened,facade,lastOpen,dirt,dirtDay,hist,served,streak,streakDate,ledger{date,served,ok,wrong,income,byG,rep0},days[],redo}；null = 還沒存檔
+// 存檔：S = {name,coins,rep,opened,facade,lastOpen,dirt,dirtDay,hist,served,streak,streakDate,ledger{date,served,ok,wrong,income,byG,rep0,event,appr},days[],redo,apprentice,drillDate,notes{干:聯想}}；null = 還沒存檔
 let S = null;
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 function loadS(){
@@ -449,7 +471,8 @@ function loadS(){
   const sd = (typeof s.streakDate==="string" && DATE_RE.test(s.streakDate)) ? s.streakDate : null;
   const L = s.ledger && typeof s.ledger==="object" ? s.ledger : {};
   const ledger = {date:(typeof L.date==="string" && DATE_RE.test(L.date)) ? L.date : null, served:Math.round(num(L.served)), ok:Math.round(num(L.ok)), wrong:{},
-    income:Math.round(num(L.income)), byG:{}, rep0:Number.isFinite(Number(L.rep0)) && L.rep0!==null ? Math.max(0, Number(L.rep0)) : num(s.rep)};
+    income:Math.round(num(L.income)), byG:{}, rep0:Number.isFinite(Number(L.rep0)) && L.rep0!==null ? Math.max(0, Number(L.rep0)) : num(s.rep),
+    event:(typeof L.event==="string" && EVENTS[L.event]) ? L.event : null, appr:Math.round(num(L.appr))};
   TIANGAN.forEach(g=>{ const n = L.wrong && Math.round(num(L.wrong[g])); if(n>0) ledger.wrong[g] = n; });
   TIANGAN.forEach(g=>{ const a = L.byG && L.byG[g]; if(Array.isArray(a)){ const n = Math.round(num(a[1])); if(n>0) ledger.byG[g] = [Math.min(n, Math.round(num(a[0]))), n]; } });
   const days = (Array.isArray(s.days) ? s.days : []).filter(d=>d && typeof d.date==="string" && DATE_RE.test(d.date))
@@ -459,9 +482,12 @@ function loadS(){
     return u && Number.isFinite(r.due) && [1,2,3].includes(u.tier) && TIANGAN.includes(u.g) && typeof u.name==="string" && Number.isFinite(u.y)
       && (u.tier===2 || HUA.includes(u.h)) && (u.tier!==3 || ["男","女"].includes(u.sex));
   }).slice(0,50);
+  const notes = {};
+  TIANGAN.forEach(g=>{ const v = s.notes && s.notes[g]; if(typeof v==="string" && v.trim()) notes[g] = v.trim().slice(0,60); });
   return {name:String(s.name||"學徒").slice(0,12), coins:num(s.coins), rep:num(s.rep), opened,
-    facade:Math.min(3, Math.max(1, Math.round(Number(s.facade))||1)), lastOpen:lo, dirt, dirtDay:t, hist, served:num(s.served),
-    streak:Math.round(num(s.streak)), streakDate:sd, ledger, days, redo};
+    facade:Math.min(6, Math.max(1, Math.round(Number(s.facade))||1)), lastOpen:lo, dirt, dirtDay:t, hist, served:num(s.served),
+    streak:Math.round(num(s.streak)), streakDate:sd, ledger, days, redo, apprentice:s.apprentice===true,
+    drillDate:(typeof s.drillDate==="string" && DATE_RE.test(s.drillDate)) ? s.drillDate : null, notes};
 }
 function pushHist(g,ok){
   const h = S.hist[g] = S.hist[g] || [];
@@ -484,13 +510,14 @@ function renderScene(){
   const f = S ? S.facade : 1, d = S ? S.dirt : 0;
   $("#sbg").src = `assets/scene-${f}.jpg`;
   const di = $("#sdirt"); di.src = `assets/dirty-${f}.jpg`; di.style.opacity = d ? 0.5 + d*0.1 : 0;
+  $("#sappr").style.display = (S && S.apprentice) ? "" : "none";
   const gi = $("#sguest");
   if(S && U.cur){ gi.src = `assets/guest-${U.cur.gu.tier}.png`; gi.style.display = ""; }
   else gi.style.display = "none";
-  $("#daytag").textContent = d>0 ? `打掃中 ${d} 級` : (S && U.open) ? `營業中 ${S.ledger.served}/${DAY_GUESTS[S.facade-1]}` : "未開張";
+  $("#daytag").textContent = d>0 ? `打掃中 ${d} 級` : (S && U.open) ? `營業中 ${S.ledger.served}/${dayGuests()}` : "未開張";
 }
 function go(p){
-  clearTimers(); U.cur=null; U.clean=null; U.learn=null; U.ledger=false; U.panel=p;
+  clearTimers(); U.cur=null; U.clean=null; U.learn=null; U.learnThen=null; U.drill=null; U.ledger=false; U.chips=false; U.quiz=null; U.noteEdit=null; U.panel=p;
   renderPanel();
 }
 function renderPanel(){
@@ -505,7 +532,9 @@ function renderPanel(){
   if(U.panel==="serve"){
     if(S.dirt>0) return cleanView();
     if(U.ledger) return ledgerView();
-    return U.open ? serveView() : openDayView();
+    if(U.open) return serveView();
+    const mg = S.drillDate!==today() ? morningG() : null;
+    return mg ? morningView(mg) : openDayView();
   }
   if(U.panel==="study") return studyView();
   if(U.panel==="shop") return shopView();
@@ -526,8 +555,9 @@ function openCard(){
     <div class="meta">接客賺銀兩，修習新的干，把店做大。</div>
     <button class="btn btn-primary" id="go">開門做生意</button></div>`;
   $("#go").onclick = ()=>{
-    S = {name:U.newName, coins:0, rep:0, opened:["甲"], facade:1, lastOpen:today(), dirt:0, dirtDay:today(), hist:{}, served:0, streak:0, streakDate:null, ledger:{date:null, served:0, ok:0, wrong:{}, income:0, byG:{}, rep0:0}, days:[], redo:[]};
-    save(); U.learn = "甲"; U.panel = "serve"; renderHeader(); renderPanel();
+    S = {name:U.newName, coins:0, rep:0, opened:["甲"], facade:1, lastOpen:today(), dirt:0, dirtDay:today(), hist:{}, served:0, streak:0, streakDate:null, ledger:{date:null, served:0, ok:0, wrong:{}, income:0, byG:{}, rep0:0, event:null, appr:0}, days:[], redo:[], apprentice:false, drillDate:null, notes:{}};
+    save(); U.panel = "serve"; renderHeader();
+    startLearn("甲", "師父考你・連對三次才准開張", ()=>{ S.drillDate = today(); save(); renderPanel(); });
   };
 }
 
@@ -539,9 +569,109 @@ function learnCard(g){
     <div class="reveal"><div class="sihua-grid">
       ${SIHUA[g].map((star,i)=>`<div class="sh-col"><div class="sh-tag ${i===3?'ji':''}">化${HUA[i]}</div><div class="sh-star">${star}</div></div>`).join("")}
     </div>
-    <div class="mnemonic">${MNEMONIC[g]}</div>
-    <button class="btn btn-primary" id="ok">記住了</button></div></div>`;
-  $("#ok").onclick = ()=>{ U.learn = null; renderPanel(); };
+    <div class="mnemonic">${MNEMONIC[g]}</div>${noteLine(g)}
+    <button class="btn btn-primary" id="ok">開始背</button></div></div>`;
+  $("#ok").onclick = ()=>{ const f = U.learnThen; U.learn = null; U.learnThen = null; f ? f() : renderPanel(); };
+}
+const noteLine = g => S.notes[g] ? `<div class="hint nt">${esc(S.notes[g])}</div>` : "";
+// 學習卡 → 翻牌自評，連對三次才呼叫 done
+function startLearn(g, title, done){ U.learn = g; U.learnThen = ()=>drillView(g, title, done); renderPanel(); }
+
+/* ---------- 翻牌自評（晨課／修習／複習／背書共用）：o.need 連續「會了」幾次才完成（預設 3，null = 不限）；o.meta(d) 自訂說明；o.foot 卡片下方 HTML，o.bindFoot 綁事件 ---------- */
+function drillView(g, title, onDone, o={}){
+  const need = o.need===undefined ? 3 : o.need;
+  const d = U.drill = {g, k:0, ok:0, bad:0};
+  const draw = ()=>{
+    $("#panel").innerHTML = `<div class="card">
+      <div class="prompt-label">${title}</div>
+      <div class="big stem">${g}</div>
+      <div class="meta">${o.meta ? o.meta(d) : `心裡默念口訣，再翻牌　連對 ${d.k} / ${need}`}</div>
+      <button class="btn btn-primary" id="flip">翻牌</button></div>${o.foot||""}`;
+    if(o.bindFoot) o.bindFoot();
+    $("#flip").onclick = ()=>{
+      $("#flip").remove();
+      $("#panel .card").insertAdjacentHTML("beforeend", `<div class="reveal"><div class="sihua-grid">
+        ${SIHUA[g].map((star,i)=>`<div class="sh-col"><div class="sh-tag ${i===3?'ji':''}">化${HUA[i]}</div><div class="sh-star">${star}</div></div>`).join("")}
+        </div>
+        <div class="mnemonic">${MNEMONIC[g]}</div>${noteLine(g)}
+        <div class="row">
+          <button class="btn btn-good" id="dg">✓ 會了</button>
+          <button class="btn btn-bad" id="db">✗ 再練</button>
+        </div></div>`);
+      $("#dg").onclick = ()=>{
+        if(U.drill!==d) return;
+        d.k++; d.ok++; pushHist(g,true); save();
+        if(need && d.k>=need){ U.drill = null; onDone(); } else draw();
+      };
+      $("#db").onclick = ()=>{
+        if(U.drill!==d) return;
+        d.k = 0; d.bad++; pushHist(g,false); save(); draw();
+      };
+    };
+  };
+  draw();
+}
+
+/* ---------- 背書：不限次數翻牌（不給銀兩名聲，只進 hist） ---------- */
+function freeDrill(g){
+  drillView(g, `背書・${g}干`, null, {
+    need:null,
+    meta:d=>`心裡默念口訣，再翻牌　會了 ${d.ok} ・ 再練 ${d.bad}`,
+    foot:`<div class="row" style="justify-content:center"><button class="mini" id="fchg">換一個干</button><button class="mini" id="fback">回書齋</button></div>`,
+    bindFoot:()=>{
+      $("#fchg").onclick = ()=>{ U.drill = null; U.chips = true; renderPanel(); };
+      $("#fback").onclick = ()=>go("study");
+    }
+  });
+}
+
+/* ---------- 背書：口訣配對 20 題（只考已修的干；level<2 權重 3、精 權重 1） ---------- */
+function matchQuiz(){ U.quiz = {n:0, ok:0, wrong:[]}; quizQ(); }
+function quizQ(){
+  const q = U.quiz;
+  if(q.n>=20) return quizDone();
+  const op = S.opened, pool = op.flatMap(x=>Array(level(x)<2 ? 3 : 1).fill(x));
+  const g = pick(pool), fwd = Math.random()<0.5;
+  const oth = [...shuf(op.filter(x=>x!==g)), ...shuf(TIANGAN.filter(x=>x!==g && !op.includes(x)))].slice(0,3);
+  const opts = shuf([g, ...oth]).map(x=>fwd ? MNEMONIC[x] : x);
+  const ans = fwd ? MNEMONIC[g] : g;
+  showQ({label:`${fwd ? "這個干的口訣是？" : "這是哪個干的口訣？"}　${q.n+1}/20`,
+    big: fwd ? `<span class="stem">${g}</span>` : `<span style="font-size:40px">${MNEMONIC[g]}</span>`,
+    opts, ans, cls:"grid2", cb:ok=>{
+      pushHist(g,ok); save(); q.n++;
+      if(ok) q.ok++; else {
+        if(!q.wrong.includes(g)) q.wrong.push(g);
+        $("#fb").className = "feedback fb-bad"; $("#fb").textContent = `正解：${g}干　${MNEMONIC[g]}`;
+      }
+      later(quizQ, ok?600:1500);
+    }});
+}
+function quizDone(){
+  const q = U.quiz, rate = Math.round(q.ok/20*100);
+  $("#panel").innerHTML = `<div class="card">
+    <div class="big" style="font-size:26px">配對 20 題　答對 ${q.ok} 題（${rate}%）</div>
+    ${q.wrong.length ? `<div class="reveal"><div class="prompt-label">答錯的干</div>${q.wrong.map(g=>`<div class="answer-line">再看一眼：${g} ${MNEMONIC[g]}</div>`).join("")}</div>` : ""}
+    <button class="btn btn-primary" id="qagain">再來一輪</button>
+    <button class="btn btn-primary" id="qback" style="margin-top:10px">回書齋</button></div>`;
+  $("#qagain").onclick = matchQuiz;
+  $("#qback").onclick = ()=>go("study");
+}
+
+/* ---------- 晨課（開張前）：挑一個還沒精的干 ---------- */
+function morningG(){
+  const c = S.opened.filter(g=>level(g)<2);
+  if(!c.length) return null;
+  const few = c.find(g=>(S.hist[g]||[]).length<5);
+  if(few) return few;
+  const acc = g => { const h = S.hist[g]; return h.reduce((a,b)=>a+b,0)/h.length; };
+  return c.reduce((m,g)=>acc(g)<acc(m) ? g : m);
+}
+function morningView(g){
+  $("#panel").innerHTML = `<div class="card">
+    <div class="big" style="font-size:34px">晨課</div>
+    <div class="meta">開張前，先把${g}干再壓一次。</div>
+    <button class="btn btn-primary" id="mstart">開始晨課</button></div>`;
+  $("#mstart").onclick = ()=> drillView(g, "晨課・連對三次就開張", ()=>{ S.drillDate = today(); save(); renderPanel(); });
 }
 
 /* ---------- 題目共用：四選一／二選一 ---------- */
@@ -594,7 +724,7 @@ function cleanDone(){
 function newGuest(){
   const ri = S.redo.findIndex(r=>r.due<=S.served);
   if(ri>=0){ const gu = S.redo.splice(ri,1)[0].gu; gu.redo = true; return gu; }
-  const w = [[80,20],[50,35],[30,40]][S.facade-1], r = Math.random()*100;
+  const w = S.ledger.event==="vip" ? [10,45] : MIX[S.facade-1], r = Math.random()*100;
   const tier = r<w[0] ? 1 : r<w[0]+w[1] ? 2 : 3;
   const g = pick(S.opened);
   const used = [U.last];
@@ -603,6 +733,7 @@ function newGuest(){
   const gu = {tier, g, name, y};
   if(tier!==2) gu.h = pick(HUA);
   if(tier===3) gu.sex = pick(["男","女"]);
+  if(S.apprentice && tier!==3 && level(g)===2 && Math.random()<0.7) gu.byAppr = true;   // 徒弟接「精」等級干的街坊／商賈
   return gu;
 }
 function askText(gu){
@@ -611,13 +742,13 @@ function askText(gu){
   return `本官${gu.y}年生，${gu.sex}命。年干、化${gu.h}、大限順逆，一樣都不能錯。`;
 }
 function serveView(){
-  if(S.ledger.served >= DAY_GUESTS[S.facade-1]) return closeShop();   // 客數已滿（例如接完最後一位後切走分頁）
+  if(S.ledger.served >= dayGuests()) return closeShop();   // 客數已滿（例如接完最後一位後切走分頁）
   if(!U.cur){ U.cur = {gu:newGuest()}; renderScene(); }
   questionView(U.cur.gu);
 }
 // 題目卡最上面放客人自我介紹
 function intro(gu){
-  $("#panel .card").insertAdjacentHTML("afterbegin", `<div class="hint">第 ${S.ledger.served+1} / ${DAY_GUESTS[S.facade-1]} 位</div><div class="gtop"><span class="tier t${gu.tier}">${TIER[gu.tier]}</span>${gu.redo?'<span class="tier back">回頭客</span>':""}<b>${gu.name}</b><span class="pay">${PAY[gu.tier][0]} 兩</span></div>
+  $("#panel .card").insertAdjacentHTML("afterbegin", `<div class="hint">第 ${S.ledger.served+1} / ${dayGuests()} 位</div><div class="gtop"><span class="tier t${gu.tier}">${TIER[gu.tier]}</span>${gu.redo?'<span class="tier back">回頭客</span>':""}<b>${gu.name}</b><span class="pay">${PAY[gu.tier][0]} 兩</span></div>
     <div class="ask">${gu.redo?"上次你答錯了，我再問一次：":""}${askText(gu)}</div>`);
 }
 // 自動打烊：記進營業日歷史（最多 30 筆），再顯示報表
@@ -629,14 +760,20 @@ function closeShop(){
   U.open = false; clearTimers(); U.cur = null; U.ledger = true; renderPanel();
 }
 function openDayView(){
-  const t = today(), n = S.redo.filter(r=>r.due<=S.served).length;
+  const t = today();
+  if(U.todayEvent===undefined) U.todayEvent = Math.random()<0.35 ? pick(Object.keys(EVENTS)) : null;   // 同一張開張卡重畫不重抽
+  const ev = U.todayEvent, n = ev==="back" ? S.redo.length : S.redo.filter(r=>r.due<=S.served).length, dg = dayGuests(ev);
   $("#panel").innerHTML = `<div class="card">
     <div class="big" style="font-size:34px">今日開張</div>
     <div class="meta">${t} ・ 連續營業 ${S.streakDate===t ? S.streak : (S.streakDate===yesterday() ? S.streak+1 : 1)} 天</div>
-    <div class="hint">${n>0 ? `有 ${n} 位客人回來再問一次。今天會來 ${DAY_GUESTS[S.facade-1]} 位。` : `今天會來 ${DAY_GUESTS[S.facade-1]} 位客人。`}</div>
+    ${ev ? `<div class="answer-line"><b>${EVENTS[ev].name}</b></div><div class="hint">${EVENTS[ev].text}</div>` : ""}
+    <div class="hint">${n>0 ? `有 ${n} 位客人回來再問一次。今天會來 ${dg} 位。` : `今天會來 ${dg} 位客人。`}</div>
+    ${S.drillDate===t ? `<div class="hint">晨課已畢。</div>` : S.opened.every(g=>level(g)===2) ? `<div class="hint">十干皆精，免晨課。</div>` : ""}
     <button class="btn btn-primary" id="opendoor">開張</button></div>`;
   $("#opendoor").onclick = ()=>{
-    S.ledger = {date:t, served:0, ok:0, wrong:{}, income:0, byG:{}, rep0:S.rep};
+    S.ledger = {date:t, served:0, ok:0, wrong:{}, income:0, byG:{}, rep0:S.rep, event:ev, appr:0};
+    if(ev==="back") S.redo.forEach(r=>r.due = S.served);
+    U.todayEvent = undefined;
     if(S.streakDate!==t){ S.streak = S.streakDate===yesterday() ? S.streak+1 : 1; S.streakDate = t; }
     U.open = true; save(); renderPanel();
   };
@@ -655,9 +792,11 @@ function ledgerView(){
   $("#panel").innerHTML = `<div class="card">
     <div class="big" style="font-size:30px">今日報表</div>
     <div class="meta">第 ${S.days.length} 個營業日 ・ 連續營業 ${S.streak} 天</div>
+    ${L.event ? `<div class="hint">今日事件：${EVENTS[L.event].name}</div>` : ""}
     ${bar("營收", pct(L.income,mx), "var(--gold)", `${L.income} 兩`)}
     ${yd ? bar("昨日", pct(yd.income,mx), "var(--line)", `${yd.income} 兩`) : ""}
     ${bar("答對率", rate, "var(--good)", `${L.ok}/${L.served}（${rate}%）`)}
+    ${S.apprentice ? `<div class="hint">徒弟接了 ${L.appr} 位</div>` : ""}
     <div class="answer-line">名聲　${repGain>=0 ? "+" : ""}${repGain}</div>
     ${gRows ? `<div class="prompt-label">各干表現</div>${gRows}` : ""}
     <div class="prompt-label">最近營業日</div>
@@ -676,6 +815,7 @@ function ledgerView(){
   }));
 }
 function questionView(gu){
+  if(gu.byAppr) return apprView(gu);
   if(gu.tier===1){
     const ans = starOf(gu.g,gu.h);
     showQ({label:`問的是化${gu.h}（${MEAN[gu.h]}），是哪顆星？`, big:`${gu.g}干 化${gu.h}`, opts:mkChoices(ans,ALL_STARS,4), ans, cls:"grid2",
@@ -719,8 +859,55 @@ function sortView(gu){
     }
   });
 }
-function finish(ok, ans, said){
-  const gu = U.cur.gu, [coins,gain,pen] = PAY[gu.tier];
+// 徒弟接客：徒弟的答案存在 gu.ap（重畫不重擲），玩家判斷「對／錯」
+function apprView(gu){
+  if(!gu.ap){
+    const right = Math.random()>=0.2;
+    if(gu.tier===1){
+      const star = starOf(gu.g,gu.h);
+      gu.ap = {right, said: right ? star : pick(ALL_STARS.filter(x=>x!==star))};
+    } else {
+      const a = [...SIHUA[gu.g]];
+      if(!right){ const i = rnd(4), j = (i+1+rnd(3))%4; [a[i],a[j]] = [a[j],a[i]]; }
+      gu.ap = {right, said:a};
+    }
+  }
+  const ap = gu.ap, cor = SIHUA[gu.g];
+  const truth = gu.tier===1 ? `${gu.g}干化${gu.h} ${cor[HUA.indexOf(gu.h)]}` : `${gu.g}干：`+HUA.map((h,i)=>`${h} ${cor[i]}`).join("・");
+  const big = gu.tier===1 ? `${gu.g}干化${gu.h}是${ap.said}`
+    : `<span style="font-size:28px">${gu.g}干：${HUA.map((h,i)=>`${h} ${ap.said[i]}`).join("・")}</span>`;
+  showQ({label:"徒弟接了這位客人，他說：", big, opts:["對","錯"], ans: ap.right?"對":"錯", cb:ok=>{
+    if(ok && ap.right){ S.ledger.appr++; finish(true, null, `你點點頭，徒弟把${gu.name}送出門。`); }
+    else if(ok){ S.ledger.appr++; finish(true, null, `你糾正徒弟：${truth}。${gu.name}滿意地走了。`); }
+    else if(!ap.right) finish(false, truth, null, `你沒看出來，${gu.name}拿著錯的答案走了。`);
+    else {
+      // 徒弟其實是對的：不扣名聲、不進回頭客、不記 hist，客數照算
+      S.served++; S.ledger.served++; S.lastOpen = today();
+      save(); renderHeader(); renderScene();
+      const fb = $("#fb"); fb.className = "feedback fb-bad";
+      fb.innerHTML = `徒弟其實是對的，你多心了。${gu.name}被弄糊塗走了。`;
+      nextBtn(gu, 2400);
+    }
+  }});
+  intro(gu);
+}
+// 「下一位／打烊看報表」按鈕與自動換人，只走一次
+function nextBtn(gu, ms){
+  const full = S.ledger.served >= dayGuests();
+  $("#fb").insertAdjacentHTML("afterend", `<button class="btn btn-primary" id="nextg">${full ? "打烊看報表" : "下一位"}</button>`);
+  // 按鈕與自動計時只能走一次：先清計時器，避免按了之後計時器再換一次人
+  let moved = false;
+  const nextG = ()=>{ if(moved) return; moved = true; clearTimers();
+    if(full) return closeShop();
+    U.last = gu.name; U.cur = null; renderPanel(); };
+  $("#nextg").onclick = nextG;
+  later(nextG, ms);
+}
+function finish(ok, ans, said, lead){
+  const gu = U.cur.gu, ev = S.ledger.event;
+  let [coins,gain,pen] = PAY[gu.tier];
+  if(ev==="rain") gain *= 2;
+  if(ev==="rival"){ pen *= 2; coins += 5; }
   if(ok){ S.coins += coins; S.rep += gain; } else S.rep = Math.max(0, S.rep-pen);
   S.served++; pushHist(gu.g, ok); S.lastOpen = today();
   S.ledger.served++;
@@ -729,41 +916,76 @@ function finish(ok, ans, said){
   if(ok){ S.ledger.ok++; S.ledger.income += coins; bg[0]++; } else S.ledger.wrong[gu.g] = (S.ledger.wrong[gu.g]||0)+1;
   if(!ok){
     const due = S.served + 3 + rnd(3), same = S.redo.find(r=>r.gu.name===gu.name && r.gu.g===gu.g && r.gu.h===gu.h);
-    if(same) same.due = due; else S.redo.push({gu:{...gu}, due});
+    const {byAppr, ap, ...rest} = gu;   // 回頭客不帶徒弟標記
+    if(same) same.due = due; else S.redo.push({gu:rest, due});
   }
   save(); renderHeader(); renderScene();
   const fb = $("#fb");
   fb.className = "feedback " + (ok?"fb-good":"fb-bad");
-  fb.innerHTML = ok ? `${said}<br>付了 ${coins} 兩，名聲 +${gain}` : `${gu.name}皺著眉走了。<br>正解：${ans}`;
-  const full = S.ledger.served >= DAY_GUESTS[S.facade-1];
-  fb.insertAdjacentHTML("afterend", `<button class="btn btn-primary" id="nextg">${full ? "打烊看報表" : "下一位"}</button>`);
-  // 按鈕與自動計時只能走一次：先清計時器，避免按了之後計時器再換一次人
-  let moved = false;
-  const nextG = ()=>{ if(moved) return; moved = true; clearTimers();
-    if(full) return closeShop();
-    U.last = gu.name; U.cur = null; renderPanel(); };
-  $("#nextg").onclick = nextG;
-  later(nextG, full ? 2400 : ok ? 1200 : 2400);
+  fb.innerHTML = ok ? `${said}<br>付了 ${coins} 兩，名聲 +${gain}` : `${lead || `${gu.name}皺著眉走了。`}<br>正解：${ans}`;
+  nextBtn(gu, S.ledger.served >= dayGuests() ? 2400 : ok ? 1200 : 2400);
 }
 
 /* ---------- 書齋 ---------- */
 function studyView(){
   const nextG = TIANGAN.find(g=>!S.opened.includes(g));
-  $("#panel").innerHTML = `<div class="card flat">${TIANGAN.map(g=>{
+  const note = U.justLearned ? `<div class="answer-line fb-good">${U.justLearned}干修完了。</div>` : U.studyMsg ? `<div class="answer-line fb-bad">${U.studyMsg}</div>` : "";
+  U.justLearned = null; U.studyMsg = null;
+  $("#panel").innerHTML = `<div class="card flat">${note}${TIANGAN.map(g=>{
     if(S.opened.includes(g)){
       const l = level(g);
-      return `<div class="srow"><span class="sg">${g}</span><span class="sm">${MNEMONIC[g]}</span>
-        <span class="lv lv${l}">${["生","熟","精"][l]}</span><button class="mini" data-r="${g}">複習</button></div>`;
+      return `<div class="srow"><span class="sg">${g}</span><span class="sm">${MNEMONIC[g]}${noteLine(g)}</span>
+        <span class="lv lv${l}">${["生","熟","精"][l]}</span><button class="mini" data-r="${g}">複習</button><button class="mini" data-n="${g}">聯想</button></div>`
+        + (U.noteEdit===g ? `<div class="nedit"><textarea class="nm" id="nmt" maxlength="60" rows="2" placeholder="用自己的話把口訣編成一個畫面">${esc(S.notes[g]||"")}</textarea>
+        <div class="nb"><button class="mini" id="nsave">存</button><button class="mini" id="ncancel">取消</button></div></div>` : "");
     }
     return `<div class="srow"><span class="sg">${g}</span><span class="sm off">未修</span>
       <button class="mini" data-b="${g}" ${g===nextG && S.coins>=PRICE[g] ? "" : "disabled"}>修習　${PRICE[g]} 兩</button></div>`;
-  }).join("")}</div>`;
-  document.querySelectorAll("#panel [data-r]").forEach(b=>b.onclick=()=>{ U.learn = b.dataset.r; renderPanel(); });
+  }).join("")}</div>
+    <div class="card flat" style="margin-top:12px">
+      <div class="prompt-label">背書</div>
+      <button class="btn btn-primary" id="fweak" style="margin-top:0">翻牌練最弱的干</button>
+      <button class="btn btn-primary" id="fpick" style="margin-top:10px">翻牌練指定的干</button>
+      ${U.chips ? `<div class="chips">${S.opened.map(g=>`<button class="mini" data-f="${g}">${g}</button>`).join("")}</div>` : ""}
+      <button class="btn btn-primary" id="fmatch" style="margin-top:10px" ${S.opened.length>=2 ? "" : "disabled"}>口訣配對 20 題</button>
+      ${S.opened.length<2 ? `<div class="hint" style="text-align:center">修到兩個干以上才能配對</div>` : ""}
+    </div>
+    <div class="card flat" style="margin-top:12px">
+      <div class="prompt-label">徒弟</div>
+      ${S.apprentice ? `<div class="ask">小徒弟在店裡。今天幫你接了 ${S.ledger.appr} 位。</div>` : `<div class="ask">收個徒弟，幫你接『精』等級的干的客人。他偶爾會算錯，要你校對。</div>
+      <button class="btn btn-primary" id="hire" style="margin-top:0" ${S.facade>=2 && S.coins>=600 ? "" : "disabled"}>收徒　600 兩</button>
+      ${S.facade<2 ? `<div class="hint" style="text-align:center">門面要到整潔小鋪才收得了徒弟</div>` : ""}`}
+    </div>`;
+  if(!S.apprentice) $("#hire").onclick = ()=>{
+    if(S.facade<2 || S.coins<600) return;
+    S.coins -= 600; S.apprentice = true; save(); renderHeader(); renderScene(); studyView();
+  };
+  $("#fweak").onclick = ()=> freeDrill(morningG() || S.opened[S.opened.length-1]);
+  $("#fpick").onclick = ()=>{ U.chips = !U.chips; studyView(); };
+  $("#fmatch").onclick = ()=>{ if(S.opened.length>=2) matchQuiz(); };
+  document.querySelectorAll("#panel [data-f]").forEach(b=>b.onclick=()=>freeDrill(b.dataset.f));
+  document.querySelectorAll("#panel [data-n]").forEach(b=>b.onclick=()=>{ U.noteEdit = b.dataset.n; studyView(); });
+  if(U.noteEdit){
+    $("#nsave").onclick = ()=>{
+      const g = U.noteEdit, v = $("#nmt").value.trim().slice(0,60);
+      if(v) S.notes[g] = v; else delete S.notes[g];
+      save(); U.noteEdit = null; studyView();
+    };
+    $("#ncancel").onclick = ()=>{ U.noteEdit = null; studyView(); };
+  }
+  document.querySelectorAll("#panel [data-r]").forEach(b=>b.onclick=()=>{
+    const g = b.dataset.r;
+    startLearn(g, "複習・連對三次", ()=>renderPanel());
+  });
   document.querySelectorAll("#panel [data-b]").forEach(b=>b.onclick=()=>{
     const g = b.dataset.b;
     if(g!==nextG || S.coins<PRICE[g]) return;
-    S.coins -= PRICE[g]; S.opened.push(g); save(); renderHeader();
-    U.learn = g; renderPanel();
+    // 背過才扣錢：drill 完成時再檢查一次銀兩
+    startLearn(g, "修習・連對三次才算學會", ()=>{
+      if(S.opened.includes(g)) return renderPanel();
+      if(S.coins<PRICE[g]){ U.studyMsg = "銀兩不夠，先去接客。"; return renderPanel(); }
+      S.coins -= PRICE[g]; S.opened.push(g); U.justLearned = g; save(); renderHeader(); renderPanel();
+    });
   });
 }
 
@@ -772,7 +994,7 @@ function shopView(){
   const f = S.facade, up = UPGRADE[f-1];
   $("#panel").innerHTML = `<div class="card flat">
     <div class="big" style="font-size:28px">Lv${f}　${FACADE[f-1]}</div>
-    <div class="meta" style="text-align:center">門面越好，有錢的客人越多（商賈、官府），但他們答錯扣的名聲也多。</div>
+    <div class="meta" style="text-align:center">門面越好，客人越多、有錢的客人越多，但他們答錯扣的名聲也多。</div>
     ${up ? `<button class="btn btn-primary" id="up" ${S.coins>=up[1]?"":"disabled"}>${up[0]}　${up[1]} 兩</button>`
          : `<button class="btn btn-primary" disabled>已是最高</button>`}</div>`;
   if(up) $("#up").onclick = ()=>{

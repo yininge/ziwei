@@ -10,20 +10,27 @@ cutout=""; ref=""
 while [ $# -gt 0 ]; do case "$1" in --cutout) cutout=1;; --ref) ref="$2"; shift;; esac; shift; done
 key="$(security find-generic-password -s GEMINI_API_KEY -w)"
 refjson="[]"
-[ -n "$ref" ] && refjson="$(jq -n --arg d "$(base64 < "$ref")" --arg m "image/$([ "${ref##*.}" = png ] && echo png || echo jpeg)" '[{type:"image",mime_type:$m,data:$d}]')"
-body="$(jq -n --arg p "$prompt" --arg ar "$ar" --argjson ref "$refjson" '{
+if [ -n "$ref" ]; then   # base64 走檔案，不走參數（大圖會超過 ARG_MAX）
+  b64f="$(mktemp)"; base64 < "$ref" | tr -d '\n' > "$b64f"
+  refjson="$(jq -n --rawfile d "$b64f" --arg m "image/$([ "${ref##*.}" = png ] && echo png || echo jpeg)" '[{type:"image",mime_type:$m,data:$d}]')"
+  rm -f "$b64f"
+fi
+reff="$(mktemp)"; printf '%s' "$refjson" > "$reff"
+body="$(jq -n --arg p "$prompt" --arg ar "$ar" --slurpfile refa "$reff" '.|$refa[0] as $ref|{
   model:"gemini-nano-banana-2.1",
   input:($ref + [{type:"text",text:$p}]),
   response_format:{type:"image",mime_type:"image/jpeg",aspect_ratio:$ar,image_size:"1K"}
 }')"
+rm -f "$reff"
+bodyf="$(mktemp)"; printf '%s' "$body" > "$bodyf"   # body 也走檔案，curl 參數同樣有 ARG_MAX
 resp="$(mktemp)"
 curl -sS -X POST "https://generativelanguage.googleapis.com/v1beta/interactions" \
   -H "x-goog-api-key: $key" -H "Content-Type: application/json" -H "Api-Revision: 2026-05-20" \
-  -d "$body" -o "$resp"
+  -d @"$bodyf" -o "$resp"
 b64="$(jq -r '[.. | objects | select(.type=="image" and .data) | .data][0] // empty' "$resp")"
 if [ -z "$b64" ]; then echo "no image in response:" >&2; jq -c 'del(.. | .data?)' "$resp" | head -c 800 >&2; echo >&2; exit 1; fi
 printf '%s' "$b64" | base64 -d > "$out"
-rm -f "$resp"
+rm -f "$resp" "$bodyf"
 echo "wrote $out"
 if [ -n "$cutout" ]; then
   png="${out%.*}.png"
