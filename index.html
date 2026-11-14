@@ -229,7 +229,7 @@ function isYang(y){ return y%2===0; }
 const $ = s => document.querySelector(s);
 const card = $("#card");
 // 暫態（不存檔）：panel 目前分頁、timers 所有 setTimeout、cur 接待中、clean 打掃中、learn 學習卡的干
-const U = {panel:"serve", timers:[], cur:null, clean:null, learn:null, learnThen:null, drill:null, justLearned:null, studyMsg:null, intro:null, newName:"", last:null, open:false, ledger:false, chips:false, quiz:null, noteEdit:null};
+const U = {panel:"serve", timers:[], cur:null, clean:null, learn:null, learnThen:null, drill:null, justLearned:null, studyMsg:null, intro:null, newName:"", last:null, open:false, ledger:false, chips:false, quiz:null, noteEdit:null, morning:null};
 const esc = s => String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function later(fn,ms){ U.timers.push(setTimeout(fn,ms)); }
 function clearTimers(){ U.timers.forEach(clearTimeout); U.timers=[]; }
@@ -517,7 +517,7 @@ function renderScene(){
   $("#daytag").textContent = d>0 ? `打掃中 ${d} 級` : (S && U.open) ? `營業中 ${S.ledger.served}/${dayGuests()}` : "未開張";
 }
 function go(p){
-  clearTimers(); U.cur=null; U.clean=null; U.learn=null; U.learnThen=null; U.drill=null; U.ledger=false; U.chips=false; U.quiz=null; U.noteEdit=null; U.panel=p;
+  clearTimers(); U.cur=null; U.clean=null; U.learn=null; U.learnThen=null; U.drill=null; U.ledger=false; U.chips=false; U.quiz=null; U.noteEdit=null; U.morning=null; U.justLearned=null; U.studyMsg=null; U.panel=p;
   renderPanel();
 }
 function renderPanel(){
@@ -532,9 +532,9 @@ function renderPanel(){
   if(U.panel==="serve"){
     if(S.dirt>0) return cleanView();
     if(U.ledger) return ledgerView();
+    if(!U.open && S.ledger.date===today() && !S.days.some(d=>d.date===today())) U.open = true;
     if(U.open) return serveView();
-    const mg = S.drillDate!==today() ? morningG() : null;
-    return mg ? morningView(mg) : openDayView();
+    return S.drillDate!==today() && morningSet().length ? morningView() : openDayView();
   }
   if(U.panel==="study") return studyView();
   if(U.panel==="shop") return shopView();
@@ -605,7 +605,8 @@ function drillView(g, title, onDone, o={}){
       };
       $("#db").onclick = ()=>{
         if(U.drill!==d) return;
-        d.k = 0; d.bad++; pushHist(g,false); save(); draw();
+        d.k = 0; d.bad++; pushHist(g,false); save();
+        if(o.onBad){ U.drill = null; o.onBad(); } else draw();
       };
     };
   };
@@ -650,7 +651,7 @@ function quizDone(){
   const q = U.quiz, rate = Math.round(q.ok/20*100);
   $("#panel").innerHTML = `<div class="card">
     <div class="big" style="font-size:26px">配對 20 題　答對 ${q.ok} 題（${rate}%）</div>
-    ${q.wrong.length ? `<div class="reveal"><div class="prompt-label">答錯的干</div>${q.wrong.map(g=>`<div class="answer-line">再看一眼：${g} ${MNEMONIC[g]}</div>`).join("")}</div>` : ""}
+    ${q.wrong.length ? `<div class="reveal"><div class="prompt-label">答錯的干，再看一眼</div>${q.wrong.map(g=>`<div class="answer-line">${g}　${MNEMONIC[g]}</div>`).join("")}</div>` : ""}
     <button class="btn btn-primary" id="qagain">再來一輪</button>
     <button class="btn btn-primary" id="qback" style="margin-top:10px">回書齋</button></div>`;
   $("#qagain").onclick = matchQuiz;
@@ -666,12 +667,56 @@ function morningG(){
   const acc = g => { const h = S.hist[g]; return h.reduce((a,b)=>a+b,0)/h.length; };
   return c.reduce((m,g)=>acc(g)<acc(m) ? g : m);
 }
-function morningView(g){
+// 晨課題組：弱的干最多 3 個 + 精的干 1 個（維持），不足 4 個再從已修的補
+function morningSet(){
+  const op = S.opened, acc = g => { const h = S.hist[g]||[]; return h.reduce((a,b)=>a+b,0)/h.length; };
+  const few = g => (S.hist[g]||[]).length<5;
+  const weak = op.filter(g=>level(g)<2).sort((a,b)=> few(a)!==few(b) ? (few(a)?-1:1) : acc(a)-acc(b)).slice(0,3);
+  const set = [...weak, ...shuf(op.filter(g=>level(g)===2)).slice(0,1)], n = Math.min(4, op.length);
+  if(set.length<n) set.push(...shuf(op.filter(g=>!set.includes(g))).slice(0, n-set.length));
+  return shuf(set);
+}
+function morningView(){
+  const gs = morningSet();
   $("#panel").innerHTML = `<div class="card">
     <div class="big" style="font-size:34px">晨課</div>
-    <div class="meta">開張前，先把${g}干再壓一次。</div>
+    <div class="meta">今天練：${gs.join(" ")}（共 ${gs.length*3} 題，答錯會再排回來）</div>
     <button class="btn btn-primary" id="mstart">開始晨課</button></div>`;
-  $("#mstart").onclick = ()=> drillView(g, "晨課・連對三次就開張", ()=>{ S.drillDate = today(); save(); renderPanel(); });
+  $("#mstart").onclick = ()=>{
+    // 每個干先翻牌回想，再接辨認題
+    U.morning = {queue:[...gs.map(g=>({g, kind:"flip"})), ...shuf(gs.flatMap(g=>[{g, kind:"fwd"}, {g, kind:"rev"}]))], total:gs.length*3, done:0, miss:[]};
+    morningRun();
+  };
+}
+function morningRun(){
+  const m = U.morning;
+  if(!m.queue.length) return morningDone();
+  const it = m.queue[0], g = it.g, label = `晨課　${m.done+1}/${m.total}`;
+  const step = ok => {
+    m.queue.shift(); m.done++;
+    if(!ok){ m.queue.push(it); m.miss.push(g); m.total++; }
+  };
+  if(it.kind==="flip") return drillView(g, label, ()=>{ step(true); morningRun(); },
+    {need:1, meta:()=>"心裡默念口訣，再翻牌", onBad:()=>{ step(false); morningRun(); }});
+  const fwd = it.kind==="fwd", op = S.opened;
+  const oth = [...shuf(op.filter(x=>x!==g)), ...shuf(TIANGAN.filter(x=>x!==g && !op.includes(x)))].slice(0,3);
+  const opts = shuf([g, ...oth]).map(x=>fwd ? MNEMONIC[x] : x);
+  const ans = fwd ? MNEMONIC[g] : g;
+  showQ({label, big: fwd ? `<span class="stem">${g}</span>` : `<span style="font-size:40px">${MNEMONIC[g]}</span>`,
+    meta: fwd ? "這個干的口訣是？" : "這是哪個干的口訣？", opts, ans, cls:"grid2", cb:ok=>{
+      pushHist(g,ok); save(); step(ok);
+      if(!ok){ $("#fb").className = "feedback fb-bad"; $("#fb").textContent = `正解：${g}干　${MNEMONIC[g]}`; }
+      later(morningRun, ok?600:1500);
+    }});
+}
+function morningDone(){
+  const m = U.morning, miss = [...new Set(m.miss)];
+  $("#panel").innerHTML = `<div class="card">
+    <div class="big" style="font-size:34px">晨課畢</div>
+    <div class="meta">${m.total} 題 ・ 錯 ${m.miss.length} 次</div>
+    ${miss.length ? `<div class="reveal"><div class="prompt-label">錯過的干，再看一眼</div>${miss.map(g=>`<div class="answer-line">${g}　${MNEMONIC[g]}</div>`).join("")}</div>` : ""}
+    <button class="btn btn-primary" id="mopen">開張</button></div>`;
+  $("#mopen").onclick = ()=>{ S.drillDate = today(); save(); U.morning = null; renderPanel(); };
 }
 
 /* ---------- 題目共用：四選一／二選一 ---------- */
@@ -768,7 +813,7 @@ function openDayView(){
     <div class="meta">${t} ・ 連續營業 ${S.streakDate===t ? S.streak : (S.streakDate===yesterday() ? S.streak+1 : 1)} 天</div>
     ${ev ? `<div class="answer-line"><b>${EVENTS[ev].name}</b></div><div class="hint">${EVENTS[ev].text}</div>` : ""}
     <div class="hint">${n>0 ? `有 ${n} 位客人回來再問一次。今天會來 ${dg} 位。` : `今天會來 ${dg} 位客人。`}</div>
-    ${S.drillDate===t ? `<div class="hint">晨課已畢。</div>` : S.opened.every(g=>level(g)===2) ? `<div class="hint">十干皆精，免晨課。</div>` : ""}
+    ${S.drillDate===t ? `<div class="hint">今日功課已做。</div>` : ""}
     <button class="btn btn-primary" id="opendoor">開張</button></div>`;
   $("#opendoor").onclick = ()=>{
     S.ledger = {date:t, served:0, ok:0, wrong:{}, income:0, byG:{}, rep0:S.rep, event:ev, appr:0};
@@ -930,7 +975,6 @@ function finish(ok, ans, said, lead){
 function studyView(){
   const nextG = TIANGAN.find(g=>!S.opened.includes(g));
   const note = U.justLearned ? `<div class="answer-line fb-good">${U.justLearned}干修完了。</div>` : U.studyMsg ? `<div class="answer-line fb-bad">${U.studyMsg}</div>` : "";
-  U.justLearned = null; U.studyMsg = null;
   $("#panel").innerHTML = `<div class="card flat">${note}${TIANGAN.map(g=>{
     if(S.opened.includes(g)){
       const l = level(g);
