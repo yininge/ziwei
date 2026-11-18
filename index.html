@@ -109,6 +109,7 @@
   .sg{font-family:"Noto Serif TC",serif; font-weight:900; font-size:22px; width:28px}
   .sm{flex:1; letter-spacing:2px; color:var(--accent); font-weight:700; font-size:15px}
   .sm.off{color:var(--muted)}
+  .rtbar{height:6px;background:var(--line);margin:10px auto 0;max-width:260px;border-radius:3px;overflow:hidden} .rtbar i{display:block;height:100%;width:100%;background:var(--accent);transition:width linear}
   .lv{font-size:12px; font-weight:700; padding:1px 9px; border-radius:20px}
   .lv0{background:#ece6dc; color:var(--muted)} .lv1{background:#f0d8cc; color:var(--accent)} .lv2{background:#f6e7c5; color:var(--gold)}
   .mini{border:1.5px solid var(--accent); background:var(--card); color:var(--accent); font-family:inherit; font-weight:700; font-size:13px; padding:5px 10px; border-radius:9px; cursor:pointer}
@@ -229,7 +230,7 @@ function isYang(y){ return y%2===0; }
 const $ = s => document.querySelector(s);
 const card = $("#card");
 // 暫態（不存檔）：panel 目前分頁、timers 所有 setTimeout、cur 接待中、clean 打掃中、learn 學習卡的干
-const U = {panel:"serve", timers:[], cur:null, clean:null, learn:null, learnThen:null, drill:null, justLearned:null, studyMsg:null, intro:null, newName:"", last:null, open:false, ledger:false, chips:false, quiz:null, noteEdit:null, morning:null};
+const U = {panel:"serve", timers:[], cur:null, clean:null, learn:null, learnThen:null, drill:null, justLearned:null, studyMsg:null, intro:null, newName:"", last:null, open:false, ledger:false, chips:false, quiz:null, noteEdit:null, morning:null, dayRt:[]};
 const esc = s => String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function later(fn,ms){ U.timers.push(setTimeout(fn,ms)); }
 function clearTimers(){ U.timers.forEach(clearTimeout); U.timers=[]; }
@@ -449,7 +450,7 @@ function today(){ return fmtDate(new Date()); }
 function yesterday(){ const d=new Date(); d.setDate(d.getDate()-1); return fmtDate(d); }
 function dayNum(s){ const [y,m,d]=s.split("-").map(Number); return Date.UTC(y,m-1,d)/864e5; }
 
-// 存檔：S = {name,coins,rep,opened,facade,lastOpen,dirt,dirtDay,hist,served,streak,streakDate,ledger{date,served,ok,wrong,income,byG,rep0,event,appr},days[],redo,apprentice,drillDate,notes{干:聯想}}；null = 還沒存檔
+// 存檔：S = {name,coins,rep,opened,facade,lastOpen,dirt,dirtDay,hist,rt{干:[反應ms,最近20]},served,streak,streakDate,ledger{date,served,ok,wrong,income,byG,rep0,event,appr},days[{date,income,served,ok,rt}],redo,apprentice,drillDate,notes{干:聯想}}；null = 還沒存檔
 let S = null;
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 function loadS(){
@@ -460,6 +461,8 @@ function loadS(){
   if(!opened.includes("甲")) opened.unshift("甲");
   const hist = {};
   TIANGAN.forEach(g=>{ const a = s.hist && s.hist[g]; if(Array.isArray(a)) hist[g] = a.filter(x=>x===0||x===1).slice(-20); });
+  const rt = {};
+  TIANGAN.forEach(g=>{ const a = s.rt && s.rt[g]; if(Array.isArray(a)) rt[g] = a.map(Number).filter(x=>x>=0&&x<=RT_MAX).slice(-20); });
   const t = today();
   const lo = (typeof s.lastOpen==="string" && DATE_RE.test(s.lastOpen)) ? s.lastOpen : null;
   let dirt = 0;
@@ -476,7 +479,7 @@ function loadS(){
   TIANGAN.forEach(g=>{ const n = L.wrong && Math.round(num(L.wrong[g])); if(n>0) ledger.wrong[g] = n; });
   TIANGAN.forEach(g=>{ const a = L.byG && L.byG[g]; if(Array.isArray(a)){ const n = Math.round(num(a[1])); if(n>0) ledger.byG[g] = [Math.min(n, Math.round(num(a[0]))), n]; } });
   const days = (Array.isArray(s.days) ? s.days : []).filter(d=>d && typeof d.date==="string" && DATE_RE.test(d.date))
-    .map(d=>({date:d.date, income:Math.round(num(d.income)), served:Math.round(num(d.served)), ok:Math.round(num(d.ok))})).slice(-30);
+    .map(d=>({date:d.date, income:Math.round(num(d.income)), served:Math.round(num(d.served)), ok:Math.round(num(d.ok)), rt:(typeof d.rt==='number' && d.rt>=0) ? d.rt : null})).slice(-30);
   const redo = (Array.isArray(s.redo) ? s.redo : []).filter(r=>{
     const u = r && r.gu;
     return u && Number.isFinite(r.due) && [1,2,3].includes(u.tier) && TIANGAN.includes(u.g) && typeof u.name==="string" && Number.isFinite(u.y)
@@ -485,7 +488,7 @@ function loadS(){
   const notes = {};
   TIANGAN.forEach(g=>{ const v = s.notes && s.notes[g]; if(typeof v==="string" && v.trim()) notes[g] = v.trim().slice(0,60); });
   return {name:String(s.name||"學徒").slice(0,12), coins:num(s.coins), rep:num(s.rep), opened,
-    facade:Math.min(6, Math.max(1, Math.round(Number(s.facade))||1)), lastOpen:lo, dirt, dirtDay:t, hist, served:num(s.served),
+    facade:Math.min(6, Math.max(1, Math.round(Number(s.facade))||1)), lastOpen:lo, dirt, dirtDay:t, hist, rt, served:num(s.served),
     streak:Math.round(num(s.streak)), streakDate:sd, ledger, days, redo, apprentice:s.apprentice===true,
     drillDate:(typeof s.drillDate==="string" && DATE_RE.test(s.drillDate)) ? s.drillDate : null, notes};
 }
@@ -494,11 +497,24 @@ function pushHist(g,ok){
   h.push(ok?1:0); if(h.length>20) h.splice(0, h.length-20);
 }
 function hallName(){ return S.rep<30?"無名小堂": S.rep<100?"街坊口碑": S.rep<300?"城中名館":"御用斗數堂"; }
+// 反應時間：限時 = 該干中位數 ×1.25，介於 3–6.5 秒。中位 ≥6.5 秒 = 生、≤3 秒 = 精
+const RT_LIMIT = 3000, RT_MAX = 6500;
+function pushRt(g,ms){
+  const a = S.rt[g] = S.rt[g] || [];
+  a.push(ms); if(a.length>20) a.splice(0, a.length-20);
+}
+function med(a){ const b=[...a].sort((x,y)=>x-y), m=b.length>>1; return b.length%2 ? b[m] : (b[m-1]+b[m])/2; }
+function rtMed(g){ const a = S.rt[g]; return a && a.length>=5 ? med(a) : null; }
+// 限時 = 該干中位數 ×1.25，介於 3–6.5 秒；沒紀錄從 6.5 秒起
+function rtLimit(g){ const m = rtMed(g); return m===null ? RT_MAX : Math.min(RT_MAX, Math.max(RT_LIMIT, Math.round(m*1.25))); }
+function accOf(g){ const h = S.hist[g]||[]; return h.length ? h.reduce((a,b)=>a+b,0)/h.length : 0; }
 function level(g){
   const h = S.hist[g]||[];
   if(h.length<5) return 0;
-  const acc = h.reduce((a,b)=>a+b,0)/h.length;
-  return acc<0.6 ? 0 : acc<0.9 ? 1 : 2;
+  const acc = accOf(g), m = rtMed(g);
+  // 速度也定等級：中位 ≥6.5 秒 = 生、≤3 秒 = 精（正確率門檻照舊）；沒測速最高到熟
+  if(acc<0.6 || (m!==null && m>=RT_MAX)) return 0;
+  return acc<0.9 ? 1 : (m!==null && m<=RT_LIMIT ? 2 : 1);
 }
 
 /* ---------- 畫面骨架 ---------- */
@@ -555,7 +571,7 @@ function openCard(){
     <div class="meta">接客賺銀兩，修習新的干，把店做大。</div>
     <button class="btn btn-primary" id="go">開門做生意</button></div>`;
   $("#go").onclick = ()=>{
-    S = {name:U.newName, coins:0, rep:0, opened:["甲"], facade:1, lastOpen:today(), dirt:0, dirtDay:today(), hist:{}, served:0, streak:0, streakDate:null, ledger:{date:null, served:0, ok:0, wrong:{}, income:0, byG:{}, rep0:0, event:null, appr:0}, days:[], redo:[], apprentice:false, drillDate:null, notes:{}};
+    S = {name:U.newName, coins:0, rep:0, opened:["甲"], facade:1, lastOpen:today(), dirt:0, dirtDay:today(), hist:{}, rt:{}, served:0, streak:0, streakDate:null, ledger:{date:null, served:0, ok:0, wrong:{}, income:0, byG:{}, rep0:0, event:null, appr:0}, days:[], redo:[], apprentice:false, drillDate:null, notes:{}};
     save(); U.panel = "serve"; renderHeader();
     startLearn("甲", "師父考你・連對三次才准開張", ()=>{ S.drillDate = today(); save(); renderPanel(); });
   };
@@ -628,10 +644,11 @@ function freeDrill(g){
 
 /* ---------- 背書：口訣配對 20 題（只考已修的干；level<2 權重 3、精 權重 1） ---------- */
 function matchQuiz(){ U.quiz = {n:0, ok:0, wrong:[]}; quizQ(); }
+const wpool = ()=>S.opened.flatMap(x=>Array(level(x)<2 ? 3 : 1).fill(x));
 function quizQ(){
   const q = U.quiz;
   if(q.n>=20) return quizDone();
-  const op = S.opened, pool = op.flatMap(x=>Array(level(x)<2 ? 3 : 1).fill(x));
+  const op = S.opened, pool = wpool();
   const g = pick(pool), fwd = Math.random()<0.5;
   const oth = [...shuf(op.filter(x=>x!==g)), ...shuf(TIANGAN.filter(x=>x!==g && !op.includes(x)))].slice(0,3);
   const opts = shuf([g, ...oth]).map(x=>fwd ? MNEMONIC[x] : x);
@@ -647,14 +664,29 @@ function quizQ(){
       later(quizQ, ok?600:1500);
     }});
 }
+/* ---------- 背書：反應 20 題（限時，結果卡共用 quizDone，q.mode==="react"） ---------- */
+function reactDrill(){ U.quiz = {n:0, ok:0, wrong:[], rts:[], byG:{}, mode:"react"}; reactNext(); }
+function reactNext(){
+  const q = U.quiz;
+  if(q.n>=20) return quizDone();
+  const g = pick(wpool());
+  reactQ(g, rnd(4), `反應　${q.n+1}/20`, (ok,ms)=>{
+    q.n++; if(ok) q.ok++;
+    q.rts.push(ms); (q.byG[g] = q.byG[g] || []).push(ms);
+    reactNext();
+  });
+}
 function quizDone(){
-  const q = U.quiz, rate = Math.round(q.ok/20*100);
+  const q = U.quiz, rate = Math.round(q.ok/20*100), rx = q.mode==="react";
+  const rrows = rx ? Object.keys(q.byG).map(g=>[g, med(q.byG[g])]).sort((a,b)=>b[1]-a[1])
+    .map(([g,m])=>`<div class="answer-line ${m>RT_LIMIT?"fb-bad":""}">${g}　中位 ${(m/1000).toFixed(1)} 秒</div>`).join("") : "";
   $("#panel").innerHTML = `<div class="card">
-    <div class="big" style="font-size:26px">配對 20 題　答對 ${q.ok} 題（${rate}%）</div>
+    <div class="big" style="font-size:26px">${rx?"反應":"配對"} 20 題　答對 ${q.ok} 題（${rate}%）</div>
+    ${rx ? `<div class="meta">反應中位 ${(med(q.rts)/1000).toFixed(1)} 秒</div><div class="reveal">${rrows}</div>` : ""}
     ${q.wrong.length ? `<div class="reveal"><div class="prompt-label">答錯的干，再看一眼</div>${q.wrong.map(g=>`<div class="answer-line">${g}　${MNEMONIC[g]}</div>`).join("")}</div>` : ""}
     <button class="btn btn-primary" id="qagain">再來一輪</button>
     <button class="btn btn-primary" id="qback" style="margin-top:10px">回書齋</button></div>`;
-  $("#qagain").onclick = matchQuiz;
+  $("#qagain").onclick = rx ? reactDrill : matchQuiz;
   $("#qback").onclick = ()=>go("study");
 }
 
@@ -680,11 +712,11 @@ function morningView(){
   const gs = morningSet();
   $("#panel").innerHTML = `<div class="card">
     <div class="big" style="font-size:34px">晨課</div>
-    <div class="meta">今天練：${gs.join(" ")}（共 ${gs.length*3} 題，答錯會再排回來）</div>
+    <div class="meta">今天練：${gs.join(" ")}（共 ${gs.length*5} 題，含限時反應題，答錯會再排回來）</div>
     <button class="btn btn-primary" id="mstart">開始晨課</button></div>`;
   $("#mstart").onclick = ()=>{
     // 每個干先翻牌回想，再接辨認題
-    U.morning = {queue:[...gs.map(g=>({g, kind:"flip"})), ...shuf(gs.flatMap(g=>[{g, kind:"fwd"}, {g, kind:"rev"}]))], total:gs.length*3, done:0, miss:[]};
+    U.morning = {queue:[...gs.map(g=>({g, kind:"flip"})), ...shuf(gs.flatMap(g=>[{g, kind:"fwd"}, {g, kind:"rev"}, ...shuf([0,1,2,3]).slice(0,2).map(h=>({g, kind:"react", h}))]))], total:gs.length*5, done:0, miss:[], rts:[]};
     morningRun();
   };
 }
@@ -698,6 +730,7 @@ function morningRun(){
   };
   if(it.kind==="flip") return drillView(g, label, ()=>{ step(true); morningRun(); },
     {need:1, meta:()=>"心裡默念口訣，再翻牌", onBad:()=>{ step(false); morningRun(); }});
+  if(it.kind==="react") return reactQ(g, it.h, label, (ok,ms)=>{ m.rts.push(ms); step(ok); morningRun(); });   // reactQ 自己記 hist/rt
   const fwd = it.kind==="fwd", op = S.opened;
   const oth = [...shuf(op.filter(x=>x!==g)), ...shuf(TIANGAN.filter(x=>x!==g && !op.includes(x)))].slice(0,3);
   const opts = shuf([g, ...oth]).map(x=>fwd ? MNEMONIC[x] : x);
@@ -713,7 +746,7 @@ function morningDone(){
   const m = U.morning, miss = [...new Set(m.miss)];
   $("#panel").innerHTML = `<div class="card">
     <div class="big" style="font-size:34px">晨課畢</div>
-    <div class="meta">${m.total} 題 ・ 錯 ${m.miss.length} 次</div>
+    <div class="meta">${m.total} 題 ・ 錯 ${m.miss.length} 次${m.rts.length ? ` ・ 反應中位 ${(med(m.rts)/1000).toFixed(1)} 秒` : ""}</div>
     ${miss.length ? `<div class="reveal"><div class="prompt-label">錯過的干，再看一眼</div>${miss.map(g=>`<div class="answer-line">${g}　${MNEMONIC[g]}</div>`).join("")}</div>` : ""}
     <button class="btn btn-primary" id="mopen">開張</button></div>`;
   $("#mopen").onclick = ()=>{ S.drillDate = today(); save(); U.morning = null; renderPanel(); };
@@ -735,6 +768,28 @@ function showQ(o){
     if(!ok) document.querySelector(`#panel .choice .btn[data-a="${o.ans}"]`).classList.add("correct");
     o.cb(ok);
   });
+  // 超時用：還沒作答就鎖住、標出正解、算答錯
+  return ()=>{
+    if(locked) return; locked = true;
+    document.querySelector(`#panel .choice .btn[data-a="${o.ans}"]`).classList.add("correct");
+    o.cb(false);
+  };
+}
+/* ---------- 限時反應題：h 是 0–3（祿權科忌），2.5 秒內四選一；對錯與反應時間都記進 hist／rt ---------- */
+function reactQ(g, h, label, cb){
+  const ans = SIHUA[g][h], t0 = performance.now(), lim = rtLimit(g);
+  let late = false;
+  const miss = showQ({label: label + `　限時 ${(lim/1000).toFixed(1)} 秒`, big:`<span class="stem">${g}</span><span class="sh-tag ${h===3?"ji":""}" style="margin-left:14px;vertical-align:middle;font-size:24px;padding:6px 14px">化${HUA[h]}</span><div class="rtbar"><i></i></div>`,
+    opts:shuf(SIHUA[g]), ans, cls:"grid2", cb:ok=>{
+      const ms = late ? lim : Math.min(RT_MAX, Math.round(performance.now()-t0)), fb = $("#fb");
+      pushHist(g,ok); pushRt(g,ms); U.dayRt.push(ms); save();
+      fb.className = "feedback " + (ok ? "fb-good" : "fb-bad");
+      fb.textContent = ok ? `${(ms/1000).toFixed(1)} 秒` : late ? `太慢了　${g}化${HUA[h]}是${ans}` : `正解：${ans}`;
+      later(()=>cb(ok,ms), ok?500:1500);
+    }});
+  const bar = document.querySelector("#panel .rtbar i");
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ if(bar.isConnected){ bar.style.transitionDuration = lim+"ms"; bar.style.width = "0%"; } }));
+  later(()=>{ late = true; miss(); }, lim);
 }
 const starOf = (g,h) => SIHUA[g][HUA.indexOf(h)];
 
@@ -799,7 +854,7 @@ function intro(gu){
 // 自動打烊：記進營業日歷史（最多 30 筆），再顯示報表
 function closeShop(){
   const L = S.ledger;
-  S.days.push({date:today(), income:L.income, served:L.served, ok:L.ok});
+  S.days.push({date:today(), income:L.income, served:L.served, ok:L.ok, rt:U.dayRt.length ? med(U.dayRt) : null});
   if(S.days.length>30) S.days.splice(0, S.days.length-30);
   save();
   U.open = false; clearTimers(); U.cur = null; U.ledger = true; renderPanel();
@@ -818,7 +873,7 @@ function openDayView(){
   $("#opendoor").onclick = ()=>{
     S.ledger = {date:t, served:0, ok:0, wrong:{}, income:0, byG:{}, rep0:S.rep, event:ev, appr:0};
     if(ev==="back") S.redo.forEach(r=>r.due = S.served);
-    U.todayEvent = undefined;
+    U.todayEvent = undefined; U.dayRt = [];
     if(S.streakDate!==t){ S.streak = S.streakDate===yesterday() ? S.streak+1 : 1; S.streakDate = t; }
     U.open = true; save(); renderPanel();
   };
@@ -830,7 +885,7 @@ function ledgerView(){
   const mx = Math.max(L.income, yd ? yd.income : 0);
   const pct = (v,m) => m>0 ? Math.round(v/m*100) : 0;
   const rate = L.served ? Math.round(L.ok/L.served*100) : 0;
-  const repGain = S.rep - L.rep0;
+  const repGain = S.rep - L.rep0, lastD = S.days[S.days.length-1], todayRt = lastD && lastD.rt!==null ? (lastD.rt/1000).toFixed(1) : null;
   const bar = (lb,w,color,val) => `<div class="bar"><span class="bl">${lb}</span><span class="bt"><i data-w="${w}" style="background:${color}"></i></span><span class="bv">${val}</span></div>`;
   const gRows = TIANGAN.filter(g=>L.byG[g]).map(g=>bar(g, pct(L.byG[g][0],L.byG[g][1]), "var(--good)", `${L.byG[g][0]}/${L.byG[g][1]}`)).join("");
   const rec = S.days.slice(-7), rmx = Math.max(...rec.map(d=>d.income), 0);
@@ -841,6 +896,7 @@ function ledgerView(){
     ${bar("營收", pct(L.income,mx), "var(--gold)", `${L.income} 兩`)}
     ${yd ? bar("昨日", pct(yd.income,mx), "var(--line)", `${yd.income} 兩`) : ""}
     ${bar("答對率", rate, "var(--good)", `${L.ok}/${L.served}（${rate}%）`)}
+    <div class="answer-line">反應　${todayRt!==null ? todayRt+" 秒" : "今天沒練"}${yd && yd.rt!==null ? `（昨日 ${(yd.rt/1000).toFixed(1)} 秒）` : ""}</div>
     ${S.apprentice ? `<div class="hint">徒弟接了 ${L.appr} 位</div>` : ""}
     <div class="answer-line">名聲　${repGain>=0 ? "+" : ""}${repGain}</div>
     ${gRows ? `<div class="prompt-label">各干表現</div>${gRows}` : ""}
@@ -979,7 +1035,8 @@ function studyView(){
     if(S.opened.includes(g)){
       const l = level(g);
       return `<div class="srow"><span class="sg">${g}</span><span class="sm">${MNEMONIC[g]}${noteLine(g)}</span>
-        <span class="lv lv${l}">${["生","熟","精"][l]}</span><button class="mini" data-r="${g}">複習</button><button class="mini" data-n="${g}">聯想</button></div>`
+        <span class="lv lv${l}">${["生","熟","精"][l]}</span><span class="sub">${rtMed(g)!==null ? (rtMed(g)/1000).toFixed(1)+"秒" : "未測速"}</span><button class="mini" data-r="${g}">複習</button><button class="mini" data-n="${g}">聯想</button></div>`
+        + (l===1 && accOf(g)>=0.9 ? `<div class="hint" style="margin-top:0">精：反應 3 秒內</div>` : l===0 && accOf(g)>=0.6 && rtMed(g)!==null ? `<div class="hint" style="margin-top:0">熟：反應 6.5 秒內</div>` : "")
         + (U.noteEdit===g ? `<div class="nedit"><textarea class="nm" id="nmt" maxlength="60" rows="2" placeholder="用自己的話把口訣編成一個畫面">${esc(S.notes[g]||"")}</textarea>
         <div class="nb"><button class="mini" id="nsave">存</button><button class="mini" id="ncancel">取消</button></div></div>` : "");
     }
@@ -993,6 +1050,7 @@ function studyView(){
       ${U.chips ? `<div class="chips">${S.opened.map(g=>`<button class="mini" data-f="${g}">${g}</button>`).join("")}</div>` : ""}
       <button class="btn btn-primary" id="fmatch" style="margin-top:10px" ${S.opened.length>=2 ? "" : "disabled"}>口訣配對 20 題</button>
       ${S.opened.length<2 ? `<div class="hint" style="text-align:center">修到兩個干以上才能配對</div>` : ""}
+      <button class="btn btn-primary" id="freact" style="margin-top:10px">反應 20 題（限時隨進步收緊）</button>
     </div>
     <div class="card flat" style="margin-top:12px">
       <div class="prompt-label">徒弟</div>
@@ -1007,6 +1065,7 @@ function studyView(){
   $("#fweak").onclick = ()=> freeDrill(morningG() || S.opened[S.opened.length-1]);
   $("#fpick").onclick = ()=>{ U.chips = !U.chips; studyView(); };
   $("#fmatch").onclick = ()=>{ if(S.opened.length>=2) matchQuiz(); };
+  $("#freact").onclick = reactDrill;
   document.querySelectorAll("#panel [data-f]").forEach(b=>b.onclick=()=>freeDrill(b.dataset.f));
   document.querySelectorAll("#panel [data-n]").forEach(b=>b.onclick=()=>{ U.noteEdit = b.dataset.n; studyView(); });
   if(U.noteEdit){
