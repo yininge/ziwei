@@ -20,7 +20,6 @@
   --danger: #a1271b;    /* 刪除、錯誤 */
   --on-color: #ffffff;  /* 壓在層色上的字 */
   /* 四柱五行色（中宮） */
-  --el-wood: #1b7d46; --el-fire: #c62828; --el-earth: #8a6d3b; --el-metal: #c98a1e; --el-water: #1f5fbf;
   /* 盤以外的高度估值（見 .chart-layout 註解） */
   --chrome: 278px;
   font-family: "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
@@ -101,15 +100,12 @@ main { width: min(100vw - 32px, 920px); margin: 0 auto; padding: 8px 0 40px; }
 .center {
   grid-row: 2 / 4; grid-column: 2 / 4; background: var(--center);
   padding: calc(var(--b) * 0.02); overflow: hidden; min-width: 0;
+  display: flex; flex-direction: column; justify-content: center; text-align: center;
 }
 .who { margin: 0; font-size: max(14px, calc(var(--b) * 0.04)); font-weight: 700; line-height: 1.2; }
 .meta { margin: calc(var(--b) * 0.003) 0 calc(var(--b) * 0.01); font-size: max(10px, calc(var(--b) * 0.022)); color: var(--ink-3); white-space: nowrap; }
 .ln { margin: 0; font-size: max(10px, calc(var(--b) * 0.02)); line-height: 1.45; white-space: nowrap; color: var(--ink); }
 .lb { color: var(--ink-3); }
-.pillars { display: flex; gap: calc(var(--b) * 0.035); margin: calc(var(--b) * 0.008) 0; font-size: max(11px, calc(var(--b) * 0.03)); font-weight: 700; line-height: 1.2; }
-.pil { display: flex; flex-direction: column; align-items: center; }
-.el-wood { color: var(--el-wood); } .el-fire { color: var(--el-fire); } .el-earth { color: var(--el-earth); }
-.el-metal { color: var(--el-metal); } .el-water { color: var(--el-water); }
 
 /* 三方四正連線：viewBox 0 0 4 4 對應 4×4 宮格 */
 .lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }

@@ -12,12 +12,12 @@ const input = { name: '甲', gender: 'M', calendar: 'solar', date: '1985-03-20',
 const chart = engine.chart(input);
 const base = () => ({ chart, input });
 
-test('基本輸出：svg、viewBox、十二宮名、四柱、五行局', () => {
+test('基本輸出：svg、viewBox、十二宮名、五行局，不畫四柱', () => {
   const s = boardSvg(base());
   assert.ok(s.startsWith('<svg'));
   assert.ok(s.includes('viewBox="0 0 1600 1600"'));
   for (const p of chart.palaces) assert.ok(s.includes(p.name), p.name);
-  for (const ch of '乙丑戊寅戊午己未') assert.ok(s.includes(`>${ch}</text>`), ch);
+  for (const z of ['乙丑', '戊寅', '戊午', '己未']) assert.ok(!s.includes(z), z);
   assert.ok(s.includes('木三局'));
 });
 

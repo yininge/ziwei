@@ -57,7 +57,7 @@ test('合盤畫兩張盤與同步流年開關', () => {
 
 test('隱藏生辰：中宮不出國曆；控制列有分享與隱藏生辰按鈕', () => {
   const shown = html({ view: 'chart', boards: [board()], hideBirth: false });
-  assert.ok(shown.includes('1985-03-20 14:00'));
+  assert.ok(shown.includes('1985-03-20 14:00') && !shown.includes('class="pillars"') && !shown.includes('el-'));
   const out = html({ view: 'chart', boards: [board()], hideBirth: true });
   assert.ok(!out.includes('<span class="lb">國曆') && !out.includes('class="pillars"') && !out.includes('<span class="lb">農曆'));
   assert.ok(out.includes('data-action="share"') && out.includes('data-action="hide-birth"'));

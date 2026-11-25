@@ -72,11 +72,6 @@ function palaceHtml(p, o, bi, selected) {
 </div>`;
 }
 
-const ELEMENT = {};
-for (const [el, chars] of Object.entries({ wood: '甲乙寅卯', fire: '丙丁巳午', earth: '戊己辰戌丑未', metal: '庚辛申酉', water: '壬癸亥子' })) {
-  for (const ch of chars) ELEMENT[ch] = el;
-}
-const elChar = (ch) => `<span class="el-${ELEMENT[ch] || 'earth'}">${esc(ch)}</span>`;
 const YANG_STEMS = '甲丙戊庚壬';
 
 // pairs = [[label, value], ...]，同一行用全形空白隔開
@@ -92,9 +87,6 @@ function centerHtml(c, input, selected, hideBirth) {
     selected != null
       ? `<p class="tri">${esc(c.palaces[selected].name)} ‧ 三方四正：${relatedOf(selected).map((j) => esc(c.palaces[j].name)).join('、')}</p>`
       : '';
-  const pillars = c.pillars
-    .map((pl) => `<span class="pil">${elChar(pl[0])}${elChar(pl[1])}</span>`)
-    .join('');
   return `<div class="center">
   <h1 class="who">${esc(name)}</h1>
   <p class="meta">${esc(sex)} · ${esc(c.fiveElementsClass)}</p>
@@ -102,7 +94,6 @@ function centerHtml(c, input, selected, hideBirth) {
   ${hideBirth ? '' : lineOf(['農曆', `${c.lunar} ${c.timeName}`])}
   ${lineOf(['命主', c.soul], ['身主', c.body])}
   ${lineOf(['命宮', c.soulPalace], ['身宮', c.bodyPalace])}
-  ${hideBirth ? '' : `<div class="pillars" aria-label="四柱">${pillars}</div>`}
   ${tri}
 </div>`;
 }

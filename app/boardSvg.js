@@ -10,17 +10,12 @@ export const DEFAULT_COLORS = {
   cell: '#ffffff', center: '#f7f8fa', grid: '#c9ced6', frame: '#5b6470',
   ink: '#1d2025', ink2: '#4f5661', ink3: '#6b727d',
   sel: '#fdf0d5', selEdge: '#c99a45', rel: '#f6f8fb',
-  elWood: '#1b7d46', elFire: '#c62828', elEarth: '#8a6d3b', elMetal: '#c98a1e', elWater: '#1f5fbf',
   onColor: '#ffffff',
 };
 
 const FONT = 'PingFang TC, Noto Sans TC, Microsoft JhengHei, system-ui, sans-serif';
 const MUT = ['祿', '權', '科', '忌'];
 const YANG_STEMS = '甲丙戊庚壬';
-const EL_OF = {};
-for (const [el, chars] of Object.entries({ elWood: '甲乙寅卯', elFire: '丙丁巳午', elEarth: '戊己辰戌丑未', elMetal: '庚辛申酉', elWater: '壬癸亥子' })) {
-  for (const ch of chars) EL_OF[ch] = el;
-}
 
 const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
@@ -151,48 +146,34 @@ function lines(c, sel, col) {
   return line(sel, opp) + line(sel, t1) + line(sel, t2) + line(t1, t2);
 }
 
+// 中宮：整組文字置中（x 取中宮中心），整組垂直置中；行高以 B 比例
 function centerSvg(c, input, selected, hideBirth, col) {
-  const x0 = M + CELL + B * 0.02;
-  let y = M + CELL + B * 0.02;
-  let out = '';
+  const cx = M + 2 * CELL;
   const name = (input.name || '').trim() || '未命名';
   const yy = YANG_STEMS.includes(c.pillars[0][0]) ? '陽' : '陰';
-  const nameFs = B * 0.04;
-  y += nameFs * 0.95;
-  out += text(x0, y, name, { size: nameFs, fill: col.ink, weight: 700 });
-  const metaFs = B * 0.022;
-  y += B * 0.003 + metaFs * 1.25;
-  out += text(x0, y, `${yy}${input.gender === 'M' ? '男' : '女'} · ${c.fiveElementsClass}`, { size: metaFs, fill: col.ink3 });
-  y += B * 0.01;
-  const lnFs = B * 0.02;
-  const ln = (...pairs) => {
-    y += lnFs * 1.45;
-    const spans = pairs
-      .map(([l, v], k) => `${k ? '<tspan>　</tspan>' : ''}<tspan fill="${col.ink3}">${esc(l)}：</tspan><tspan>${esc(v)}</tspan>`)
-      .join('');
-    out += `<text x="${n1(x0)}" y="${n1(y)}" font-size="${n1(lnFs)}" fill="${col.ink}">${spans}</text>`;
-  };
+  const nameFs = B * 0.04, metaFs = B * 0.022, lnFs = B * 0.02;
+  const pair = (l, v) => `<tspan fill="${col.ink3}">${esc(l)}：</tspan><tspan>${esc(v)}</tspan>`;
+  const rows = [
+    { fs: nameFs, lh: nameFs * 1.2, w: 700, fill: col.ink, body: esc(name) },
+    { fs: metaFs, lh: metaFs * 1.25, gapAfter: B * 0.01, fill: col.ink3, body: esc(`${yy}${input.gender === 'M' ? '男' : '女'} · ${c.fiveElementsClass}`) },
+  ];
+  const ln = (...pairs) => rows.push({ fs: lnFs, lh: lnFs * 1.45, fill: col.ink, body: pairs.map(([l, v]) => pair(l, v)).join('<tspan>　</tspan>') });
   if (!hideBirth) {
     ln(['國曆', `${c.solarDate} ${input.time}`]);
     ln(['農曆', `${c.lunar} ${c.timeName}`]);
   }
   ln(['命主', c.soul], ['身主', c.body]);
   ln(['命宮', c.soulPalace], ['身宮', c.bodyPalace]);
-  if (!hideBirth) {
-    const pFs = B * 0.03;
-    y += B * 0.008;
-    c.pillars.forEach((pl, k) => {
-      const cx = x0 + pFs / 2 + k * (pFs + B * 0.035);
-      [...pl].slice(0, 2).forEach((ch, j) => {
-        out += text(cx, y + pFs * (0.95 + 1.2 * j), ch, { size: pFs, fill: col[EL_OF[ch] || 'elEarth'], weight: 700, anchor: 'middle' });
-      });
-    });
-    y += pFs * 2.4 + B * 0.008;
-  }
   if (selected != null) {
-    y += B * 0.012 + lnFs * 1.1;
-    const tri = `${c.palaces[selected].name} ‧ 三方四正：${relatedOf(selected).map((j) => c.palaces[j].name).join('、')}`;
-    out += text(x0, y, tri, { size: lnFs, fill: col.ink });
+    rows.push({ fs: lnFs, lh: lnFs * 1.45, gapBefore: B * 0.012, fill: col.ink, body: esc(`${c.palaces[selected].name} ‧ 三方四正：${relatedOf(selected).map((j) => c.palaces[j].name).join('、')}`) });
+  }
+  const total = rows.reduce((t, r) => t + (r.gapBefore || 0) + r.lh + (r.gapAfter || 0), 0);
+  let y = M + 2 * CELL - total / 2; // 中宮垂直中心 = M + 2*CELL
+  let out = '';
+  for (const r of rows) {
+    y += r.gapBefore || 0;
+    out += `<text x="${n1(cx)}" y="${n1(y + r.lh / 2 + r.fs * 0.35)}" font-size="${n1(r.fs)}" fill="${r.fill}"${r.w ? ` font-weight="${r.w}"` : ''} text-anchor="middle">${r.body}</text>`;
+    y += r.lh + (r.gapAfter || 0);
   }
   return out;
 }
