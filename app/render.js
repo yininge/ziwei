@@ -1,6 +1,6 @@
 import { visibleStars, visibleFlowStars, decadalOrderForYear } from './engine.js';
 import { GRID } from './layout.js';
-import { search, linksOf, consultationsOf, findPerson, relationSuggestions, allTags } from './model.js';
+import { search, linksOf, consultationsOf, findPerson, relationSuggestions, allTags, filterByTag } from './model.js';
 
 const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
@@ -84,7 +84,7 @@ const lineOf = (...pairs) =>
   `<p class="ln">${pairs.map(([l, v]) => `<span class="lb">${esc(l)}：</span>${esc(v)}`).join('　')}</p>`;
 
 // 中宮：照文墨的資訊順序
-function centerHtml(c, input, selected) {
+function centerHtml(c, input, selected, hideBirth) {
   const name = (input.name || '').trim() || '未命名';
   const yy = YANG_STEMS.includes(c.pillars[0][0]) ? '陽' : '陰';
   const sex = `${yy}${input.gender === 'M' ? '男' : '女'}`;
@@ -98,11 +98,11 @@ function centerHtml(c, input, selected) {
   return `<div class="center">
   <h1 class="who">${esc(name)}</h1>
   <p class="meta">${esc(sex)} · ${esc(c.fiveElementsClass)}</p>
-  ${lineOf(['國曆', `${c.solarDate} ${input.time}`])}
-  ${lineOf(['農曆', `${c.lunar} ${c.timeName}`])}
+  ${hideBirth ? '' : lineOf(['國曆', `${c.solarDate} ${input.time}`])}
+  ${hideBirth ? '' : lineOf(['農曆', `${c.lunar} ${c.timeName}`])}
   ${lineOf(['命主', c.soul], ['身主', c.body])}
   ${lineOf(['命宮', c.soulPalace], ['身宮', c.bodyPalace])}
-  <div class="pillars" aria-label="四柱">${pillars}</div>
+  ${hideBirth ? '' : `<div class="pillars" aria-label="四柱">${pillars}</div>`}
   ${tri}
 </div>`;
 }
@@ -132,7 +132,7 @@ function boardHtml(board, state, bi) {
   const o = overlaysOf(board, state);
   return `<div class="board" data-board="${bi}">
 ${c.palaces.map((p) => palaceHtml(p, o, bi, board.selectedPalace)).join('\n')}
-${centerHtml(c, board.draft, board.selectedPalace)}
+${centerHtml(c, board.draft, board.selectedPalace, state.hideBirth)}
 ${board.selectedPalace != null ? linesHtml(c, board.selectedPalace) : ''}
 </div>`;
 }
@@ -174,7 +174,7 @@ function controlsHtml(board, state, bi) {
   return `<div class="ctrl">
   <div class="crow d12">${dRow}</div>
   <div class="crow y10">${yRow}</div>
-  <div class="cfoot"><label class="chk"><input type="checkbox" data-action="showflow"${state.showAllFlow ? ' checked' : ''}> 顯示全部流曜</label><span class="sum">${esc(summaryText(o))}</span></div>
+  <div class="cfoot"><label class="chk"><input type="checkbox" data-action="showflow"${state.showAllFlow ? ' checked' : ''}> 顯示全部流曜</label><button type="button" class="btn ghost sm" data-action="hide-birth">${state.hideBirth ? '顯示生辰' : '隱藏生辰'}</button><button type="button" class="btn ghost sm" data-action="share" data-board="${bi}"${state.sharing ? ' disabled' : ''}>分享圖片</button><span class="sum">${esc(summaryText(o))}</span></div>
 </div>`;
 }
 
@@ -188,7 +188,21 @@ function birthLine(b) {
 
 // ---------- library ----------
 
-function rowHtml(doc, p) {
+// 命盤縮影：命宮主星（最多兩顆）；空宮借對宮主星；排不出盤顯示「—」
+function miniHtml(c) {
+  const soul = c?.palaces?.findIndex((x) => x.branch === c.soulPalace);
+  if (!c || soul == null || soul < 0) return '<span class="lr-mini"><b class="lm-star">—</b></span>';
+  const majors = (i) => c.palaces[i].stars.filter((s) => s.type === 'major').slice(0, 2).map((s) => s.name);
+  const own = majors(soul);
+  let head = `<b class="lm-star">${esc(own.join(' '))}</b>`;
+  if (!own.length) {
+    const opp = c.palaces[(soul + 6) % 12] ? majors((soul + 6) % 12) : [];
+    head = `<b class="lm-empty">空宮</b>${opp.length ? `<span class="lm-borrow"> · 借${esc(opp.join(' '))}</span>` : ''}`;
+  }
+  return `<span class="lr-mini"><span class="lm-top">${head}</span><span class="lm-el">${esc(c.fiveElementsClass || '')}</span></span>`;
+}
+
+function rowHtml(doc, p, chartOf) {
   const cs = consultationsOf(doc, p.id);
   const nl = linksOf(doc, p.id).length;
   const cert = p.timeCertainty && p.timeCertainty !== 'exact' ? `（時辰${CERTAINTY[p.timeCertainty]}）` : '';
@@ -202,18 +216,38 @@ function rowHtml(doc, p) {
   const meta = [cs.length ? `問事 ${cs.length} 筆` : '', nl ? `關聯 ${nl} 人` : '', p.updatedAt ? `更新 ${p.updatedAt.slice(0, 10)}` : '']
     .filter(Boolean).join(' · ');
   return `<button type="button" class="lib-row" data-action="open" data-id="${esc(p.id)}">
-  <span class="lr-top"><b class="lr-name">${esc(p.name || '未命名')}</b><span class="lr-sex">${p.gender === 'M' ? '男' : '女'}</span><span class="lr-birth">${esc(birthLine(p.birth))}${esc(cert)}</span>${p.tags.length ? `<span class="lr-tags">${p.tags.map((t) => `<i>${esc(t)}</i>`).join('')}</span>` : ''}</span>
+  ${miniHtml(chartOf(p))}
+  <span class="lr-body">
+  <span class="lr-top"><b class="lr-name">${esc(p.name || '未命名')}</b><span class="lr-sex">${p.gender === 'M' ? '男' : '女'}</span><span class="lr-birth">${esc(birthLine(p.birth))}${esc(cert)}</span></span>
+  ${p.tags.length ? `<span class="lr-tags">${p.tags.map((t) => `<i>${esc(t)}</i>`).join('')}</span>` : ''}
   <span class="lr-last">${last}</span>
   <span class="lr-meta">${esc(meta)}</span>
+  </span>
 </button>`;
 }
 
-// 搜尋時只重畫這一塊（不重畫整頁，搜尋框才不會掉焦點）
-export function listHtml(state) {
+const SORTS = [['recent', '最近動靜'], ['name', '姓名'], ['birth', '生日']];
+
+// 標籤篩選列 + 排序；只列有人用的 tag
+function filterBarHtml(state) {
+  const people = state.doc.people;
+  const used = allTags(state.doc).map((t) => [t, people.filter((p) => p.tags.includes(t)).length]).filter(([, n]) => n);
+  const chip = (tag, label, n) => {
+    const on = (state.filterTag || null) === tag;
+    return `<button type="button" class="fchip${on ? ' on' : ''}" data-action="filter-tag"${tag ? ` data-tag="${esc(tag)}"` : ''} aria-pressed="${on}">${esc(label)}<small>${n}</small></button>`;
+  };
+  return `<div class="filterbar">${chip(null, '全部', people.length)}${used.map(([t, n]) => chip(t, t, n)).join('')}
+<select class="sortsel" data-role="sort" aria-label="排序">${SORTS.map(([v, l]) => `<option value="${v}"${(state.sort || 'recent') === v ? ' selected' : ''}>${l}</option>`).join('')}</select></div>`;
+}
+
+// 搜尋／篩選／排序時只重畫這一塊（不重畫整頁，搜尋框才不會掉焦點）
+export function listHtml(state, chartOf = state.chartOf || (() => null)) {
   if (!state.doc.people.length) return '<p class="hint">還沒有命盤，按右上角新增</p>';
-  const list = search(state.doc, state.q);
-  if (!list.length) return '<p class="hint">找不到符合的命盤</p>';
-  return list.map((p) => rowHtml(state.doc, p)).join('\n');
+  const list = filterByTag(search(state.doc, state.q, state.sort || 'recent'), state.filterTag);
+  const body = list.length
+    ? `<div class="cards">${list.map((p) => rowHtml(state.doc, p, chartOf)).join('\n')}</div>`
+    : '<p class="hint">找不到符合的命盤</p>';
+  return filterBarHtml(state) + body;
 }
 
 function libraryHtml(state) {

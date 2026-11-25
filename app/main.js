@@ -1,6 +1,8 @@
 import { createEngine } from './engine.js';
 import { toTeacher, fromTeacher, detect } from './format.js';
 import { render, listHtml } from './render.js';
+import { boardSvg, DEFAULT_COLORS } from './boardSvg.js';
+import { svgToPngBlob, sharePng } from './share.js';
 import * as store from './store.js';
 import { randomSalt, deriveKey, encryptDoc, decryptDoc, isEncrypted } from './crypto.js';
 import * as keystore from './keystore.js';
@@ -20,15 +22,29 @@ const state = {
   doc: EMPTY_DOC(),
   version: '',
   q: '',
+  filterTag: null, // null = 全部
+  sort: 'recent', // 'recent' | 'name' | 'birth'
   selectedId: null, // null = 新增中、尚未儲存
   boards: [], // chart view 只用 [0]；compare 用 [0]、[1]
   showAllFlow: false,
+  hideBirth: false, // 只影響盤面與輸出圖，表單照常顯示
+  sharing: false,
   compare: { side: 0, syncYear: true },
   error: '',
   notice: '',
   panelTab: 'info',
   editingConsult: null,
   forms: { consult: {}, link: {} }, // 面板底部新增表單的草稿，重畫時不掉字
+};
+
+// 列表縮影用的 chart 快取：key = id + updatedAt，列表重畫不重算；排盤失敗存 null
+const chartCache = new Map();
+state.chartOf = (p) => {
+  const k = p.id + p.updatedAt;
+  if (!chartCache.has(k)) {
+    try { chartCache.set(k, chart({ name: p.name, gender: p.gender, ...p.birth, leap: !!p.birth.leap, fixLeap: true, timeCertainty: p.timeCertainty || 'exact' })); } catch { chartCache.set(k, null); }
+  }
+  return chartCache.get(k);
 };
 
 const draw = () => render(state, root);
@@ -126,7 +142,7 @@ async function commit(newDoc, onOk) {
 
 async function lock(msg = '') {
   await keystore.forget();
-  Object.assign(state, { key: null, doc: EMPTY_DOC(), view: 'unlock', selectedId: null, boards: [], q: '', notice: '', error: msg });
+  Object.assign(state, { key: null, doc: EMPTY_DOC(), view: 'unlock', selectedId: null, boards: [], q: '', filterTag: null, notice: '', error: msg });
   draw();
 }
 
@@ -162,6 +178,13 @@ function boardOf(id) {
   const b = blankBoard(id, draftOf(findPerson(state.doc, id)));
   recompute(b);
   return b;
+}
+
+function overlaysOf(b) {
+  const o = { d: null, y: null };
+  try { if (b.decadalOrder) o.d = engine.decadalOverlay(b.chart, b.decadalOrder); } catch { /* 略過 */ }
+  try { if (b.year) o.y = engine.yearlyOverlay(b.chart, b.year); } catch { /* 略過 */ }
+  return o;
 }
 
 const boardEl = (el) => state.boards[Number(el.dataset.board)];
@@ -217,6 +240,10 @@ const actions = {
     state.notice = '';
     draw();
   },
+  'filter-tag': (el) => {
+    state.filterTag = state.filterTag === el.dataset.tag || !el.dataset.tag ? null : el.dataset.tag;
+    draw();
+  },
   tab: (el) => {
     state.panelTab = el.dataset.tab;
     state.editingConsult = null;
@@ -252,6 +279,37 @@ const actions = {
   },
   showflow: (el) => {
     state.showAllFlow = el.checked;
+    draw();
+  },
+  'hide-birth': () => {
+    state.hideBirth = !state.hideBirth;
+    draw();
+  },
+  async share(el) {
+    const b = boardEl(el);
+    if (!b?.chart || state.sharing) return;
+    state.sharing = true;
+    state.error = '';
+    draw();
+    try {
+      const css = getComputedStyle(document.documentElement);
+      const colors = {};
+      for (const k of Object.keys(DEFAULT_COLORS)) {
+        const v = css.getPropertyValue('--' + k.replace(/[A-Z0-9]/g, (m) => '-' + m.toLowerCase())).trim();
+        if (v) colors[k] = v;
+      }
+      const o = overlaysOf(b);
+      const today = stamp();
+      const svg = boardSvg({
+        chart: b.chart, input: b.draft, decadal: o.d, yearly: o.y, selectedPalace: b.selectedPalace,
+        showAllFlow: state.showAllFlow, hideBirth: state.hideBirth, colors, size: 1600, today,
+      });
+      const blob = await svgToPngBlob(svg, 1600);
+      await sharePng(blob, `${(b.draft.name || '').trim() || '命盤'}-${today.replaceAll('-', '')}.png`);
+    } catch (err) {
+      state.error = `分享圖片失敗：${err.message}`;
+    }
+    state.sharing = false;
     draw();
   },
   sync: (el) => {
@@ -455,6 +513,11 @@ root.addEventListener('change', (e) => {
     const file = e.target.files[0];
     e.target.value = ''; // 同一個檔可以再選一次
     if (file) importFile(file);
+    return;
+  }
+  if (e.target.dataset.role === 'sort') {
+    state.sort = e.target.value;
+    root.querySelector('#list').innerHTML = listHtml(state);
     return;
   }
   if (e.target.name !== 'calendar') return;

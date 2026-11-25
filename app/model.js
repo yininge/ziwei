@@ -72,7 +72,7 @@ export function consultationsOf(doc, id) {
   return out.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 }
 
-export function search(doc, q) {
+export function search(doc, q, sort = 'recent') {
   const needle = (q || '').trim().toLowerCase();
   const hit = (s) => String(s ?? '').toLowerCase().includes(needle);
   const list = needle
@@ -80,6 +80,8 @@ export function search(doc, q) {
         (p) => hit(p.name) || p.tags.some(hit) || p.consultations.some((c) => hit(c.question) || hit(c.analysis)),
       )
     : doc.people;
+  if (sort === 'name') return [...list].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'zh-Hant'));
+  if (sort === 'birth') return [...list].sort((a, b) => (a.birth.date < b.birth.date ? -1 : a.birth.date > b.birth.date ? 1 : 0));
   // 「最近有動靜」= max(updatedAt, 最新問事日期)；問事日期（YYYY-MM-DD）與 ISO 字串可直接字典序比較
   const key = (p) => {
     const d = consultationsOf(doc, p.id)[0]?.date || '';
@@ -88,6 +90,8 @@ export function search(doc, q) {
   const k = new Map(list.map((p) => [p.id, key(p)]));
   return [...list].sort((a, b) => (k.get(a.id) < k.get(b.id) ? 1 : k.get(a.id) > k.get(b.id) ? -1 : 0));
 }
+
+export const filterByTag = (list, tag) => (tag ? list.filter((p) => p.tags.includes(tag)) : list);
 
 export function relationSuggestions(doc) {
   const set = new Set();

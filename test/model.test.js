@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   EMPTY_DOC, newPerson, findPerson, upsertPerson, removePerson,
-  linksOf, consultationsOf, search, relationSuggestions,
+  linksOf, consultationsOf, search, relationSuggestions, filterByTag,
 } from '../app/model.js';
 
 function setup() {
@@ -85,4 +85,18 @@ test('upsertPerson 不 mutate 原 doc，並更新 updatedAt', async () => {
   assert.equal(d1.people[0].name, 'x');
   assert.equal(d2.people.length, 1);
   assert.equal(d2.people[0].name, 'y');
+});
+
+test('filterByTag：null 不篩；指定 tag 只留有該 tag 的人', () => {
+  const { doc, a } = setup();
+  assert.equal(filterByTag(doc.people, null).length, 3);
+  assert.deepEqual(filterByTag(doc.people, '客戶').map((p) => p.id), [a.id]);
+});
+
+test('search sort=name / birth', () => {
+  let { doc, a, b, c } = setup();
+  const bd = { [a.id]: '1990-01-01', [b.id]: '1980-05-05', [c.id]: '2000-12-12' };
+  const people = doc.people.map((p) => ({ ...p, birth: { ...p.birth, date: bd[p.id] } }));
+  assert.deepEqual(search({ ...doc, people }, '', 'birth').map((p) => p.id), [b.id, a.id, c.id]);
+  assert.deepEqual(search({ ...doc, people }, '', 'name').map((p) => p.name), ['阿丙', '阿乙', '阿甲'].sort((x, y) => x.localeCompare(y, 'zh-Hant')));
 });

@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { createEngine } from '../app/engine.js';
-import { render } from '../app/render.js';
-import { EMPTY_DOC } from '../app/model.js';
+import { render, listHtml } from '../app/render.js';
+import { EMPTY_DOC, newPerson, upsertPerson } from '../app/model.js';
 
 globalThis.self ??= globalThis;
 const iztro = createRequire(import.meta.url)('../vendor/iztro.min.js');
@@ -53,4 +53,23 @@ test('合盤畫兩張盤與同步流年開關', () => {
   const out = html({ view: 'compare', boards: [board({ year: 2026 }), board()] });
   assert.equal((out.match(/class="board"/g) || []).length, 2);
   assert.ok(out.includes('同步流年'));
+});
+
+test('隱藏生辰：中宮不出國曆；控制列有分享與隱藏生辰按鈕', () => {
+  const shown = html({ view: 'chart', boards: [board()], hideBirth: false });
+  assert.ok(shown.includes('1985-03-20 14:00'));
+  const out = html({ view: 'chart', boards: [board()], hideBirth: true });
+  assert.ok(!out.includes('<span class="lb">國曆') && !out.includes('class="pillars"') && !out.includes('<span class="lb">農曆'));
+  assert.ok(out.includes('data-action="share"') && out.includes('data-action="hide-birth"'));
+  assert.ok(out.includes('顯示生辰') && shown.includes('隱藏生辰'));
+});
+
+test('listHtml：縮影主星＋五行局、篩選 chip、排序 select', () => {
+  const p = newPerson({ name: '阿甲', tags: ['家人'] });
+  const doc = upsertPerson(EMPTY_DOC(), p);
+  const fake = { soulPalace: '子', fiveElementsClass: '木三局', palaces: Array.from({ length: 12 }, (_, i) => ({ branch: i === 0 ? '子' : 'x', name: '', stars: i === 0 ? [{ name: '太陽', type: 'major' }, { name: '太陰', type: 'major' }, { name: '左輔', type: 'minor' }] : [] })) };
+  const out = listHtml({ doc, q: '', filterTag: null, sort: 'recent' }, () => fake);
+  for (const s of ['太陽 太陰', '木三局', 'data-action="filter-tag"', 'data-role="sort"', '家人']) assert.ok(out.includes(s), s);
+  assert.ok(!out.includes('左輔'));
+  assert.ok(listHtml({ doc, q: '', filterTag: null }, () => null).includes('—'));
 });
