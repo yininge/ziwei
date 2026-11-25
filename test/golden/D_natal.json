@@ -1,0 +1,299 @@
+{
+ "name": "D",
+ "gender": "M",
+ "date": "2000-02-20",
+ "time": "05:00",
+ "source": "andylifemap-ziwei.pages.dev, 抄錄 2026-11-25",
+ "view": null,
+ "fiveElementsClass": "土五局",
+ "lunar": "二〇〇〇年正月十六",
+ "pillars": [
+  "庚辰",
+  "戊寅",
+  "戊申",
+  "乙卯"
+ ],
+ "soul": "巨門",
+ "body": "文昌",
+ "soulPalace": "亥",
+ "bodyPalace": "巳",
+ "palaces": [
+  {
+   "stars": [
+    {
+     "name": "天馬"
+    },
+    {
+     "name": "地劫"
+    }
+   ],
+   "overlays": [],
+   "name": "田宅",
+   "range": [
+    35,
+    44
+   ],
+   "body": false,
+   "stem": "戊",
+   "branch": "寅"
+  },
+  {
+   "stars": [],
+   "overlays": [],
+   "name": "官祿",
+   "range": [
+    45,
+    54
+   ],
+   "body": false,
+   "stem": "己",
+   "branch": "卯"
+  },
+  {
+   "stars": [
+    {
+     "name": "天同",
+     "brightness": "平",
+     "mutagens": [
+      "科"
+     ]
+    },
+    {
+     "name": "左輔"
+    }
+   ],
+   "overlays": [],
+   "name": "僕役",
+   "range": [
+    55,
+    64
+   ],
+   "body": false,
+   "stem": "庚",
+   "branch": "辰"
+  },
+  {
+   "stars": [
+    {
+     "name": "武曲",
+     "brightness": "平",
+     "mutagens": [
+      "權"
+     ]
+    },
+    {
+     "name": "破軍",
+     "brightness": "平"
+    },
+    {
+     "name": "火星",
+     "brightness": "得"
+    },
+    {
+     "name": "天喜"
+    }
+   ],
+   "overlays": [],
+   "name": "遷移",
+   "range": [
+    65,
+    74
+   ],
+   "body": true,
+   "stem": "辛",
+   "branch": "巳"
+  },
+  {
+   "stars": [
+    {
+     "name": "太陽",
+     "brightness": "旺",
+     "mutagens": [
+      "祿"
+     ]
+    }
+   ],
+   "overlays": [],
+   "name": "疾厄",
+   "range": [
+    75,
+    84
+   ],
+   "body": false,
+   "stem": "壬",
+   "branch": "午"
+  },
+  {
+   "stars": [
+    {
+     "name": "天府",
+     "brightness": "廟"
+    },
+    {
+     "name": "文昌",
+     "brightness": "利"
+    },
+    {
+     "name": "文曲",
+     "brightness": "旺"
+    },
+    {
+     "name": "天鉞"
+    },
+    {
+     "name": "陀羅",
+     "brightness": "廟"
+    }
+   ],
+   "overlays": [],
+   "name": "財帛",
+   "range": [
+    85,
+    94
+   ],
+   "body": false,
+   "stem": "癸",
+   "branch": "未"
+  },
+  {
+   "stars": [
+    {
+     "name": "天機",
+     "brightness": "得"
+    },
+    {
+     "name": "太陰",
+     "brightness": "利"
+    },
+    {
+     "name": "祿存"
+    },
+    {
+     "name": "地空"
+    }
+   ],
+   "overlays": [],
+   "name": "子女",
+   "range": [
+    95,
+    104
+   ],
+   "body": false,
+   "stem": "甲",
+   "branch": "申"
+  },
+  {
+   "stars": [
+    {
+     "name": "紫微",
+     "brightness": "旺"
+    },
+    {
+     "name": "貪狼",
+     "brightness": "利"
+    },
+    {
+     "name": "擎羊",
+     "brightness": "陷"
+    }
+   ],
+   "overlays": [],
+   "name": "夫妻",
+   "range": [
+    105,
+    114
+   ],
+   "body": false,
+   "stem": "乙",
+   "branch": "酉"
+  },
+  {
+   "stars": [
+    {
+     "name": "巨門",
+     "brightness": "陷"
+    },
+    {
+     "name": "右弼"
+    }
+   ],
+   "overlays": [],
+   "name": "兄弟",
+   "range": [
+    115,
+    124
+   ],
+   "body": false,
+   "stem": "丙",
+   "branch": "戌"
+  },
+  {
+   "stars": [
+    {
+     "name": "天相",
+     "brightness": "得",
+     "mutagens": [
+      "忌"
+     ]
+    },
+    {
+     "name": "紅鸞"
+    }
+   ],
+   "overlays": [],
+   "name": "命宮",
+   "range": [
+    5,
+    14
+   ],
+   "body": false,
+   "stem": "丁",
+   "branch": "亥"
+  },
+  {
+   "stars": [
+    {
+     "name": "天梁",
+     "brightness": "廟"
+    }
+   ],
+   "overlays": [],
+   "name": "父母",
+   "range": [
+    15,
+    24
+   ],
+   "body": false,
+   "stem": "戊",
+   "branch": "子"
+  },
+  {
+   "stars": [
+    {
+     "name": "廉貞",
+     "brightness": "利"
+    },
+    {
+     "name": "七殺",
+     "brightness": "廟"
+    },
+    {
+     "name": "天魁"
+    },
+    {
+     "name": "鈴星",
+     "brightness": "得"
+    }
+   ],
+   "overlays": [],
+   "name": "福德",
+   "range": [
+    25,
+    34
+   ],
+   "body": false,
+   "stem": "己",
+   "branch": "丑"
+  }
+ ]
+}
