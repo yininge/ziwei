@@ -1,5 +1,7 @@
 # 部署到 Cloudflare Workers
 
+正式網址：**https://ziwei.yi-bc8.workers.dev/chart.html**（排盤）、https://ziwei.yi-bc8.workers.dev/（斗數堂）。Access 擋全站，只放 yi@honulab.com。
+
 架構：靜態檔（`chart.html`、`app/`、`vendor/`）＋ `worker/index.js`（只處理 `/api/people`）＋ KV（存整包密文）＋ Access（擋在最前面）。
 資料在瀏覽器端用 passphrase 導出的金鑰整包 AES-GCM 加密，Cloudflare 只看得到密文。
 
@@ -52,7 +54,7 @@ git commit -m "wrangler：填入 KV id 與 Access 參數"
 git push
 ```
 
-回 dashboard 看 **Deployments**，綠了就開 `https://ziwei.<帳號>.workers.dev/chart.html`。
+回 dashboard 看 **Deployments**，綠了就開 https://ziwei.yi-bc8.workers.dev/chart.html。
 第一次會先跳 Access 登入，再跳 app 的 passphrase 設定畫面。**passphrase 存進 1Password，忘了沒人能解。**
 
 ## 五、手機
