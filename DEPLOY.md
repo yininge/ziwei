@@ -22,7 +22,7 @@ node --test
 2. Worker 名稱要是 **`ziwei`**（必須跟 `wrangler.jsonc` 的 `name` 一樣，不然 build 會失敗）。
 3. Build 設定：
    - Build command：留空
-   - Deploy command：`npx wrangler@4.165.0 deploy`（釘版本，不要用預設的 `npx wrangler deploy`，那會抓當天最新版）
+   - Deploy command：留預設 `npx wrangler deploy`（wrangler 版本釘在 `package.json` 的 devDependencies，升版改那一行）
    - Root directory：`/`
 4. 先不要按 Deploy，下一步設完 Access 再來。
 

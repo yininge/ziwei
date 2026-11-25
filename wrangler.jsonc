@@ -6,7 +6,7 @@
   "assets": { "directory": ".", "binding": "ASSETS", "run_worker_first": ["/api/*"] },
   // KV namespace id：Cloudflare dashboard → Workers & Pages → KV → Create namespace 後複製 ID
   //（或 `npx wrangler kv namespace create PEOPLE`，輸出會附 id）。
-  "kv_namespaces": [{ "binding": "PEOPLE", "id": "REPLACE_WITH_KV_NAMESPACE_ID" }],
+  "kv_namespaces": [{ "binding": "PEOPLE", "id": "5d3bfd84c5d2479382a8d2eb995fd6b2" }],
   "vars": {
     // TEAM_DOMAIN 與 POLICY_AUD：部署後到 Worker → Settings → Domains & Routes，
     // 對該網域啟用 Cloudflare Access，彈窗會給「JWT audience (AUD) tag」與 team domain
