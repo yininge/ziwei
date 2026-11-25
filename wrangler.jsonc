@@ -11,7 +11,7 @@
     // TEAM_DOMAIN 與 POLICY_AUD：部署後到 Worker → Settings → Domains & Routes，
     // 對該網域啟用 Cloudflare Access，彈窗會給「JWT audience (AUD) tag」與 team domain
     //（格式 https://<team>.cloudflareaccess.com，不要結尾斜線）。
-    "TEAM_DOMAIN": "https://REPLACE.cloudflareaccess.com",
-    "POLICY_AUD": "REPLACE_WITH_ACCESS_AUD"
+    "TEAM_DOMAIN": "https://still-wave-e887.cloudflareaccess.com",
+    "POLICY_AUD": "1798d186f4be7f88163710dd7ab3f681fd4f326fd25ecd479ddb2d149502d957"
   }
 }
