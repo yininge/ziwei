@@ -188,13 +188,23 @@ function birthLine(b) {
 
 // ---------- library ----------
 
-function rowHtml(p) {
-  const n = p.consultations.length;
+function rowHtml(doc, p) {
+  const cs = consultationsOf(doc, p.id);
+  const nl = linksOf(doc, p.id).length;
   const cert = p.timeCertainty && p.timeCertainty !== 'exact' ? `（時辰${CERTAINTY[p.timeCertainty]}）` : '';
+  const c = cs[0];
+  let last = '<span class="lr-none">還沒有問事紀錄</span>';
+  if (c) {
+    const text = (c.question || '').trim() || (c.analysis || '').trim().slice(0, 40);
+    const other = c.ownerId !== p.id ? `（記在 ${esc(c.ownerName || '未命名')} 的盤）` : '';
+    last = `上次 ${esc(c.date)}${text ? ` · ${esc(text)}` : ''}${other}`;
+  }
+  const meta = [cs.length ? `問事 ${cs.length} 筆` : '', nl ? `關聯 ${nl} 人` : '', p.updatedAt ? `更新 ${p.updatedAt.slice(0, 10)}` : '']
+    .filter(Boolean).join(' · ');
   return `<button type="button" class="lib-row" data-action="open" data-id="${esc(p.id)}">
-  <span class="lr-top"><b class="lr-name">${esc(p.name || '未命名')}</b><span class="lr-sex">${p.gender === 'M' ? '男' : '女'}</span>${n ? `<span class="lr-n">問事 ${n} 筆</span>` : ''}</span>
-  <span class="lr-birth">${esc(birthLine(p.birth))}${esc(cert)}</span>
-  ${p.tags.length ? `<span class="lr-tags">${p.tags.map(esc).join('、')}</span>` : ''}
+  <span class="lr-top"><b class="lr-name">${esc(p.name || '未命名')}</b><span class="lr-sex">${p.gender === 'M' ? '男' : '女'}</span><span class="lr-birth">${esc(birthLine(p.birth))}${esc(cert)}</span>${p.tags.length ? `<span class="lr-tags">${p.tags.map((t) => `<i>${esc(t)}</i>`).join('')}</span>` : ''}</span>
+  <span class="lr-last">${last}</span>
+  <span class="lr-meta">${esc(meta)}</span>
 </button>`;
 }
 
@@ -203,7 +213,7 @@ export function listHtml(state) {
   if (!state.doc.people.length) return '<p class="hint">還沒有命盤，按右上角新增</p>';
   const list = search(state.doc, state.q);
   if (!list.length) return '<p class="hint">找不到符合的命盤</p>';
-  return list.map(rowHtml).join('\n');
+  return list.map((p) => rowHtml(state.doc, p)).join('\n');
 }
 
 function libraryHtml(state) {

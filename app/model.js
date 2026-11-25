@@ -80,7 +80,13 @@ export function search(doc, q) {
         (p) => hit(p.name) || p.tags.some(hit) || p.consultations.some((c) => hit(c.question) || hit(c.analysis)),
       )
     : doc.people;
-  return [...list].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0));
+  // 「最近有動靜」= max(updatedAt, 最新問事日期)；問事日期（YYYY-MM-DD）與 ISO 字串可直接字典序比較
+  const key = (p) => {
+    const d = consultationsOf(doc, p.id)[0]?.date || '';
+    return d > p.updatedAt ? d : p.updatedAt;
+  };
+  const k = new Map(list.map((p) => [p.id, key(p)]));
+  return [...list].sort((a, b) => (k.get(a.id) < k.get(b.id) ? 1 : k.get(a.id) > k.get(b.id) ? -1 : 0));
 }
 
 export function relationSuggestions(doc) {

@@ -64,6 +64,17 @@ test('search 比對 name / tags / question / analysis 全文，不分大小寫',
   assert.equal(search(doc, '不存在').length, 0);
 });
 
+test('search 預設排序：有較新問事的人排在前面', () => {
+  const { doc, a, b } = setup();
+  // upsertPerson 會把 updatedAt 蓋成現在，所以直接改 doc
+  const people = doc.people.map((p) =>
+    p.id === a.id
+      ? { ...p, updatedAt: '2020-01-01T00:00:00.000Z', consultations: [{ id: '1', date: '2099-06-01', question: 'q', analysis: '', view: { scope: 'natal' }, with: [] }] }
+      : { ...p, updatedAt: '2025-01-01T00:00:00.000Z' });
+  const ids = search({ ...doc, people }, '').map((p) => p.id);
+  assert.ok(ids.indexOf(a.id) < ids.indexOf(b.id));
+});
+
 test('upsertPerson 不 mutate 原 doc，並更新 updatedAt', async () => {
   const doc = EMPTY_DOC();
   const p = newPerson({ name: 'x', updatedAt: '2000-01-01T00:00:00.000Z' });
