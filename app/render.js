@@ -26,6 +26,7 @@ function overlaysOf(board, state) {
   return o;
 }
 
+// 星柱：星名直排兩字，下面接亮度、再往下疊四化（本命→大限→流年）
 function starHtml(s, o) {
   const bright = s.brightness ? `<span class="bright">${esc(s.brightness)}</span>` : '';
   const badge = s.mutagen ? `<span class="hua natal">${esc(s.mutagen)}</span>` : '';
@@ -37,72 +38,84 @@ function starHtml(s, o) {
   return `<span class="star ${kind}"><span class="sname">${esc(s.name)}</span>${bright}${badge}${dBadge}${yBadge}</span>`;
 }
 
+const flowCols = (names, cls) => names.map((n) => `<span class="fs ${cls}">${esc(n)}</span>`).join('');
+
 function palaceHtml(p, o, bi, selected) {
   const pos = GRID[p.branch];
   const i = p.index;
-  const stars = visibleStars(p).map((s) => starHtml(s, o)).join('');
-  const body = p.isBody ? '<span class="body-tag">身</span>' : '';
+  const list = visibleStars(p);
+  const stars = list.map((s) => starHtml(s, o)).join('');
+  const body = p.isBody ? '<span class="body-tag">|身</span>' : '';
   const df = o.d ? visibleFlowStars(o.d.stars[i], 'decadal', { showAll: o.showAll }) : [];
   const yf = o.y ? visibleFlowStars(o.y.stars[i], 'yearly', { showAll: o.showAll }) : [];
-  const flows =
-    df.length || yf.length
-      ? `<div class="flows">${df.map((n) => `<span class="f-d">${esc(n)}</span>`).join('')}${yf.map((n) => `<span class="f-y">${esc(n)}</span>`).join('')}</div>`
-      : '';
+  // 流曜：流年藍在前、大限綠在後（文墨「年馬 年鉞 大昌」）
+  const flows = df.length || yf.length ? `<div class="flows">${flowCols(yf, 'f-y')}${flowCols(df, 'f-d')}</div>` : '';
   const dn = o.d?.shortNames[i];
   const yn = o.y?.shortNames[i];
-  const shorts =
-    dn || yn
-      ? `<span class="ovn">${dn ? `<span class="f-d">${esc(dn)}</span>` : ''}${yn ? `<span class="f-y">${esc(yn)}</span>` : ''}</span>`
-      : '';
-  const tags = `${dn === '大命' ? '<span class="ptag f-d">大限命宮</span>' : ''}${yn === '流命' ? '<span class="ptag f-y">流年命宮</span>' : ''}`;
+  const tags = `${yn === '流命' ? '<span class="ptag f-y">流年命宮</span>' : ''}${dn === '大命' ? '<span class="ptag f-d">大限命宮</span>' : ''}`;
+  const shorts = dn || yn ? `<div class="ovn">${yn ? `<span class="f-y">${esc(yn)}</span>` : ''}${dn ? `<span class="f-d">${esc(dn)}</span>` : ''}</div>` : '';
   const cls = [
     'palace',
     p.name === '命宮' ? 'is-life' : '',
     selected === i ? 'sel' : selected != null && relatedOf(selected).includes(i) ? 'rel' : '',
   ].filter(Boolean).join(' ');
   return `<div class="${cls}" style="grid-row:${pos.row};grid-column:${pos.col}" data-action="palace" data-board="${bi}" data-index="${i}">
-  <div class="stars">${stars}</div>
-  ${flows}
-  ${tags ? `<div class="ptags">${tags}</div>` : ''}
-  <div class="pname"><span class="pn">${esc(p.name)}</span>${body}${shorts}<span class="range">${esc(p.range[0])}–${esc(p.range[1])}</span></div>
-  <div class="gz">${esc(p.stem)}${esc(p.branch)}</div>
+  <div class="stars${list.length >= 7 ? ' dense' : ''}" style="--n:${Math.max(list.length, 1)}">${stars}</div>
+  <div class="foot">
+    <div class="fl"></div>
+    <div class="fm">${flows}${tags ? `<div class="ptags">${tags}</div>` : ''}${shorts}</div>
+    <div class="fr">
+      <div class="pnc"><span class="range">${esc(p.range[0])}–${esc(p.range[1])}</span><span class="pname"><span class="pn">${esc(p.name)}</span>${body}</span></div>
+      <div class="gz">${esc(p.stem)}${esc(p.branch)}</div>
+    </div>
+  </div>
 </div>`;
 }
 
-function row(label, value) {
-  return `<dt>${esc(label)}</dt><dd>${esc(value)}</dd>`;
+const ELEMENT = {};
+for (const [el, chars] of Object.entries({ wood: '甲乙寅卯', fire: '丙丁巳午', earth: '戊己辰戌丑未', metal: '庚辛申酉', water: '壬癸亥子' })) {
+  for (const ch of chars) ELEMENT[ch] = el;
 }
+const elChar = (ch) => `<span class="el-${ELEMENT[ch] || 'earth'}">${esc(ch)}</span>`;
+const YANG_STEMS = '甲丙戊庚壬';
 
+// pairs = [[label, value], ...]，同一行用全形空白隔開
+const lineOf = (...pairs) =>
+  `<p class="ln">${pairs.map(([l, v]) => `<span class="lb">${esc(l)}：</span>${esc(v)}`).join('　')}</p>`;
+
+// 中宮：照文墨的資訊順序
 function centerHtml(c, input, selected) {
   const name = (input.name || '').trim() || '未命名';
-  const sex = input.gender === 'M' ? '男命' : '女命';
+  const yy = YANG_STEMS.includes(c.pillars[0][0]) ? '陽' : '陰';
+  const sex = `${yy}${input.gender === 'M' ? '男' : '女'}`;
   const tri =
     selected != null
       ? `<p class="tri">${esc(c.palaces[selected].name)} ‧ 三方四正：${relatedOf(selected).map((j) => esc(c.palaces[j].name)).join('、')}</p>`
       : '';
+  const pillars = c.pillars
+    .map((pl) => `<span class="pil">${elChar(pl[0])}${elChar(pl[1])}</span>`)
+    .join('');
   return `<div class="center">
   <h1 class="who">${esc(name)}</h1>
-  <p class="meta">${sex} · ${esc(c.fiveElementsClass)}</p>
-  <dl>
-    ${row('國曆', `${c.solarDate} ${input.time}`)}
-    ${row('農曆', c.lunar)}
-    ${row('四柱', c.pillars.join(' '))}
-    ${row('命主', c.soul)}
-    ${row('身主', c.body)}
-    ${row('命宮', c.soulPalace)}
-    ${row('身宮', c.bodyPalace)}
-  </dl>
+  <p class="meta">${esc(sex)} · ${esc(c.fiveElementsClass)}</p>
+  ${lineOf(['國曆', `${c.solarDate} ${input.time}`])}
+  ${lineOf(['農曆', `${c.lunar} ${c.timeName}`])}
+  ${lineOf(['命主', c.soul], ['身主', c.body])}
+  ${lineOf(['命宮', c.soulPalace], ['身宮', c.bodyPalace])}
+  <div class="pillars" aria-label="四柱">${pillars}</div>
   ${tri}
 </div>`;
 }
 
 // ---------- 盤 + 控制列（chart / compare 共用） ----------
 
-// 三方四正連線：選中→對宮、選中→兩個三合、兩個三合之間（viewBox 0 0 4 4，中心 = (col-0.5, row-0.5)）
+// 三方四正連線：選中→對宮、選中→兩個三合、兩個三合之間（viewBox 0 0 4 4）。
+// 端點 = 宮格中心 clamp 到中宮範圍 [1,3]，線只畫在中宮裡（文墨、老師都這樣）
 function linesHtml(c, sel) {
+  const clamp = (v) => Math.min(3, Math.max(1, v));
   const ctr = (i) => {
     const g = GRID[c.palaces[i].branch];
-    return [g.col - 0.5, g.row - 0.5];
+    return [clamp(g.col - 0.5), clamp(g.row - 0.5)];
   };
   const [opp, tri1, tri2] = [(sel + 6) % 12, (sel + 4) % 12, (sel + 8) % 12];
   const line = (a, b) => {
@@ -138,8 +151,8 @@ function controlsHtml(board, state, bi) {
   const nowOrder = decadalOrderForYear(c, thisYear());
   const dRow = c.decadals
     .map(
-      (d) => `<button type="button" class="cbtn${board.decadalOrder === d.order ? ' on' : ''}${nowOrder === d.order ? ' now' : ''}" data-action="decadal" data-board="${bi}" data-order="${d.order}" aria-pressed="${board.decadalOrder === d.order}">
-<span>${NUM[d.order - 1]}限 ${esc(d.stem)}${esc(d.branch)}</span><span>${d.range[0]}–${d.range[1]}</span></button>`,
+      (d) => `<button type="button" class="cbtn dbtn${board.decadalOrder === d.order ? ' on' : ''}${nowOrder === d.order ? ' now' : ''}" data-action="decadal" data-board="${bi}" data-order="${d.order}" aria-pressed="${board.decadalOrder === d.order}">
+<span class="lim">${NUM[d.order - 1]}限</span><span class="dgz">${esc(d.stem)}${esc(d.branch)}</span><span class="rng">${d.range[0]}–${d.range[1]}</span></button>`,
     )
     .join('');
   const ord = board.decadalOrder ?? nowOrder ?? 1;
