@@ -1,3 +1,6 @@
 assets/raw/
 assets/samples/
 .claude/
+
+# 排盤資料，含個資，絕不進 repo
+data/
