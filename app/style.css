@@ -2,72 +2,99 @@
   --paper: #f3efe6;
   --ink: #2b2a28;
   --mute: #8a857b;
+  --muted: #555;
   --line: #d5cfc2;
-  --lu: #3f8f5a;
-  --quan: #c0392b;
-  --ke: #3a6fb0;
-  --ji: #333;
-  --board: min(100vw - 32px, 920px);
+  --quan: #c0392b; /* 錯誤、刪除 */
+  --ke: #3a6fb0; /* focus、連結 */
+  /* 文墨天機式配色：顏色 = 層 / 星的類別 */
+  --c-major: #c0392b; /* 十四主星 */
+  --c-minor: #7d3c98; /* 六吉六煞祿存天馬 */
+  --c-adj:   #2e6db4; /* 雜曜 */
+  --c-natal: #c0392b; /* 本命層 */
+  --c-dec:   #2e8b57; /* 大限層 */
+  --c-year:  #2e6db4; /* 流年層 */
+  /* 盤以外的高度估值（見 .chart-layout 註解） */
+  --chrome: 236px;
   font-family: "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--paper); color: var(--ink); }
-main { width: var(--board); margin: 0 auto; padding: 16px 0 40px; }
+main { width: min(100vw - 32px, 920px); margin: 0 auto; padding: 8px 0 40px; }
 
-.inputs { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-bottom: 14px; font-size: 14px; }
+.inputs { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; font-size: 14px; }
+.frow { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; }
 .inputs label { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
-.inputs .grp { display: inline-flex; gap: 10px; }
+.inputs .grp { display: inline-flex; gap: 10px; align-items: center; }
 .inputs input[type="text"], .inputs input[type="date"], .inputs input[type="time"] {
   font: inherit; color: inherit; background: transparent; border: 0; border-bottom: 1px solid var(--line);
   padding: 2px 2px; border-radius: 0;
 }
 .inputs input[type="text"] { width: 7em; }
+.inputs input[type="text"].quick { width: 11em; }
 .inputs input:focus-visible, .inputs select:focus-visible, .btn:focus-visible, .search:focus-visible, .cform :focus-visible { outline: 2px solid var(--ke); outline-offset: 2px; }
 .error { color: var(--quan); }
 
+/* 標籤 chips（多選） */
+.chip-opt {
+  position: relative; display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 999px;
+  padding: 1px 12px; font-size: 13px; cursor: pointer; user-select: none;
+}
+.chip-opt input { position: absolute; opacity: 0; pointer-events: none; }
+.chip-opt:has(input:checked) { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.chip-opt:has(input:focus-visible) { outline: 2px solid var(--ke); outline-offset: 2px; }
+
+/* 字級、間距全部以盤邊長 --b 為基準（--b 由 .board-col / .cmp-col 設定） */
 .board {
+  position: relative;
   display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr);
-  width: var(--board); aspect-ratio: 1; border-top: 1px solid var(--line); border-left: 1px solid var(--line);
+  width: var(--b); aspect-ratio: 1; border-top: 1px solid var(--line); border-left: 1px solid var(--line);
 }
 .palace {
   position: relative; overflow: hidden; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
   min-width: 0; min-height: 0;
 }
-.stars { display: flex; gap: clamp(1px, 0.5vw, 5px); padding: clamp(3px, 1vw, 8px); align-items: flex-start; }
+.stars { display: flex; gap: calc(var(--b) * 0.006); padding: calc(var(--b) * 0.012); align-items: flex-start; }
 .star { writing-mode: vertical-rl; display: inline-flex; align-items: center; line-height: 1.15; }
-.star.major { font-weight: 700; font-size: clamp(11px, 2.4vw, 20px); }
-.star.minor { font-weight: 400; font-size: clamp(9px, 1.9vw, 15px); }
-.bright { font-size: clamp(7px, 1.3vw, 11px); color: var(--mute); font-weight: 400; margin-block-start: 0.15em; }
+.star.major { font-weight: 700; font-size: max(11px, calc(var(--b) * 0.032)); color: var(--c-major); }
+.star.minor { font-weight: 400; font-size: max(10px, calc(var(--b) * 0.024)); color: var(--c-minor); }
+.star.adj { font-weight: 400; font-size: max(10px, calc(var(--b) * 0.024)); color: var(--c-adj); }
+.bright { font-size: max(10px, calc(var(--b) * 0.017)); color: var(--muted); font-weight: 400; margin-block-start: 0.15em; }
 .hua {
   display: inline-block; writing-mode: horizontal-tb; color: #fff; font-weight: 400;
-  font-size: clamp(7px, 1.3vw, 11px); line-height: 1; padding: 0.2em 0.35em; border-radius: 3px;
+  font-size: max(10px, calc(var(--b) * 0.017)); line-height: 1; padding: 0.2em 0.35em; border-radius: 3px;
   margin-block-start: 0.2em;
 }
-.hua-lu { background: var(--lu); } .hua-quan { background: var(--quan); }
-.hua-ke { background: var(--ke); } .hua-ji { background: var(--ji); }
+.hua.natal { background: var(--c-natal); } .hua.dec { background: var(--c-dec); } .hua.year { background: var(--c-year); }
 
-.pname { position: absolute; left: clamp(3px, 1vw, 8px); bottom: clamp(2px, 0.8vw, 6px); line-height: 1.25; white-space: nowrap; }
-.pn { font-size: clamp(8px, 1.5vw, 13px); color: var(--mute); }
-.is-life .pn { color: var(--ink); font-weight: 700; }
+.pname { position: absolute; left: calc(var(--b) * 0.012); bottom: calc(var(--b) * 0.008); line-height: 1.25; white-space: nowrap; }
+.pn { font-size: max(10px, calc(var(--b) * 0.021)); color: var(--c-natal); }
+.is-life .pn { font-weight: 700; }
 .body-tag {
-  font-size: clamp(7px, 1.1vw, 10px); border: 1px solid var(--mute); color: var(--mute);
+  font-size: max(9px, calc(var(--b) * 0.013)); border: 1px solid var(--c-natal); color: var(--c-natal);
   border-radius: 2px; padding: 0 2px; margin-left: 3px;
 }
-.range { display: block; font-size: clamp(7px, 1.2vw, 11px); color: var(--mute); }
-.gz { position: absolute; right: clamp(3px, 1vw, 8px); bottom: clamp(2px, 0.8vw, 6px); font-size: clamp(8px, 1.5vw, 13px); color: var(--mute); }
+.range { display: block; font-size: max(10px, calc(var(--b) * 0.016)); color: var(--mute); }
+.gz { position: absolute; right: calc(var(--b) * 0.012); bottom: calc(var(--b) * 0.008); font-size: max(10px, calc(var(--b) * 0.022)); color: var(--ink); }
 
 .center {
   grid-row: 2 / 4; grid-column: 2 / 4; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
-  padding: clamp(6px, 2vw, 20px); overflow: hidden; min-width: 0;
+  padding: calc(var(--b) * 0.02); overflow: hidden; min-width: 0;
 }
-.who { margin: 0; font-size: clamp(14px, 3vw, 26px); font-weight: 700; line-height: 1.2; }
-.meta { margin: 2px 0 clamp(4px, 1.4vw, 12px); font-size: clamp(10px, 1.8vw, 15px); color: var(--mute); white-space: nowrap; }
+.who { margin: 0; font-size: max(14px, calc(var(--b) * 0.04)); font-weight: 700; line-height: 1.2; }
+.meta { margin: calc(var(--b) * 0.003) 0 calc(var(--b) * 0.014); font-size: max(10px, calc(var(--b) * 0.02)); color: var(--mute); white-space: nowrap; }
 .center dl {
-  margin: 0; display: grid; grid-template-columns: auto 1fr; gap: clamp(1px, 0.5vw, 4px) clamp(6px, 1.5vw, 14px);
-  font-size: clamp(9px, 1.6vw, 14px); line-height: 1.35;
+  margin: 0; display: grid; grid-template-columns: auto 1fr; gap: calc(var(--b) * 0.005) calc(var(--b) * 0.016);
+  font-size: max(10px, calc(var(--b) * 0.02)); line-height: 1.35;
 }
 .center dt { color: var(--mute); white-space: nowrap; }
 .center dd { margin: 0; }
+
+/* 三方四正連線：viewBox 0 0 4 4 對應 4×4 宮格 */
+.lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+/* non-scaling-stroke 時 dash 以螢幕 px 計，所以用 6 4 而不是 viewBox 單位 */
+.lines line {
+  stroke: var(--c-natal); stroke-opacity: .45; stroke-width: 1.5; stroke-dasharray: 6 4; vector-effect: non-scaling-stroke;
+}
 
 /* ---- 資料層：列表、面板 ---- */
 .inputs input[type="text"].wide { width: 12em; }
@@ -84,8 +111,8 @@ main { width: var(--board); margin: 0 auto; padding: 16px 0 40px; }
 .notice { color: var(--ke); }
 
 main.lib { width: min(100vw - 32px, 720px); }
-main.chart-view { width: min(100vw - 32px, 920px); }
-.topbar { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+main.chart-view { width: min(100vw - 32px, 1600px); }
+.topbar { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
 .topbar .title { margin: 0; font-size: 22px; line-height: 1.2; flex: 1; }
 .lib .topbar .title { flex: 1; }
 .search {
@@ -106,9 +133,20 @@ main.chart-view { width: min(100vw - 32px, 920px); }
 .lr-tags { font-size: 12px; color: var(--mute); }
 .hint { color: var(--mute); font-size: 14px; }
 
-.chart-layout { display: grid; grid-template-columns: 1fr; gap: 20px; }
-.board-col { min-width: 0; }
-.panel { min-width: 0; font-size: 14px; border-top: 1px solid var(--line); }
+.chart-layout { display: grid; grid-template-columns: 1fr; gap: 8px 24px; }
+/* 盤邊長：手機 = 100vw - 32px；平板起再受視窗高度限制（--chrome = 盤以外的高度估值：
+   頂部 padding 8 + 標題列 34 + 表單兩列 70 + 控制列（兩條 + 開關摘要）102 + 餘裕 22） */
+.chart-layout, .cmp-col { --b: calc(100vw - 32px); }
+.board-col, .cmp-col { min-width: 0; }
+.board-col { grid-area: board; }
+.chart-layout > .ctrl { grid-area: ctrl; }
+.chart-layout > .panel { grid-area: panel; }
+.chart-layout { grid-template-areas: "board" "ctrl" "panel"; }
+@media (min-width: 700px) {
+  .chart-layout { --b: min(100vw - 32px, max(420px, 100vh - var(--chrome))); }
+  .cmp-col { --b: min(100vw - 32px, max(420px, 100vh - 212px)); }
+}
+.panel { min-width: 0; font-size: 14px; border-top: 1px solid var(--line); padding-top: 4px; }
 .tabs { display: flex; gap: 4px; margin: 8px 0 12px; flex-wrap: wrap; }
 .tab { font: inherit; font-size: 14px; color: var(--mute); background: transparent; border: 0; border-bottom: 2px solid transparent; padding: 4px 8px; cursor: pointer; }
 .tab.on { color: var(--ink); border-bottom-color: var(--ink); font-weight: 700; }
@@ -134,51 +172,63 @@ main.chart-view { width: min(100vw - 32px, 920px); }
 .chk { display: inline-flex; align-items: center; gap: 4px; margin-right: 12px; white-space: nowrap; }
 
 @media (min-width: 1100px) {
-  :root { --board: min(100vw - 32px - 384px, 920px); }
-  main.chart-view { width: min(100vw - 32px, 1304px); }
-  .chart-layout { grid-template-columns: var(--board) 360px; gap: 24px; align-items: start; }
-  .panel { border-top: 0; border-left: 1px solid var(--line); padding-left: 20px; }
+  /* --chrome = 頂部 padding 8 + 標題列 34 + 表單兩列 70 + 底部餘裕 16；右欄吃剩下的寬度（最少 400） */
+  .chart-layout { --chrome: 156px; --b: min(100vh - var(--chrome), 100vw - 32px - 16px - 400px); }
+  .chart-layout {
+    grid-template-columns: var(--b) minmax(380px, 1fr); grid-template-rows: auto minmax(0, 1fr);
+    height: var(--b); gap: 8px 16px; align-items: start;
+    grid-template-areas: "board ctrl" "board panel";
+  }
+  .board-col { grid-row: 1 / 3; }
+  .panel { border-top: 0; border-left: 1px solid var(--line); padding: 0 0 0 16px; max-height: 100%; height: 100%; overflow-y: auto; }
+  .chart-layout > .ctrl .crow.d12 { grid-template-columns: repeat(6, 1fr); }
+  .chart-layout > .ctrl .crow.y10 { grid-template-columns: repeat(5, 1fr); }
+  .chart-layout > .ctrl .cbtn { height: 40px; justify-content: center; font-size: 13px; }
+  .chart-layout > .ctrl .cbtn span:nth-child(2) { font-size: 12px; }
+  .chart-layout > .ctrl .cfoot { margin: 4px 0 2px; font-size: 13px; }
 }
 @media (max-width: 700px) {
   .topbar .title { font-size: 18px; }
-  .inputs { gap: 8px 12px; }
+  .frow { gap: 6px 12px; }
   .inputs input[type="text"].wide { width: 10em; }
   .lr-top { flex-wrap: wrap; }
 }
 
 /* ---- 里程碑 4：疊盤、三方四正、合盤 ---- */
-:root { --flow-d: #7a746a; --flow-y: #4f6a85; }
 .palace { cursor: pointer; }
 .palace.rel { background: rgba(0, 0, 0, 0.04); }
 .palace.sel { background: rgba(0, 0, 0, 0.1); }
-.tri { margin: clamp(3px, 1vw, 8px) 0 0; font-size: clamp(9px, 1.5vw, 13px); color: var(--ink); }
+.tri { margin: calc(var(--b) * 0.012) 0 0; font-size: max(10px, calc(var(--b) * 0.02)); color: var(--ink); }
 
-.flows { display: flex; flex-wrap: wrap; gap: 0 0.5em; padding: 0 clamp(3px, 1vw, 8px); font-size: clamp(8px, 1.4vw, 12px); line-height: 1.3; }
-.f-d { color: var(--flow-d); } .f-y { color: var(--flow-y); }
-.ovn { display: block; font-size: clamp(7px, 1.2vw, 11px); line-height: 1.2; }
+.flows { display: flex; flex-wrap: wrap; gap: 0 0.5em; padding: 0 calc(var(--b) * 0.012); font-size: max(10px, calc(var(--b) * 0.018)); line-height: 1.3; }
+.f-d { color: var(--c-dec); } .f-y { color: var(--c-year); }
+.ovn { display: block; font-size: max(10px, calc(var(--b) * 0.016)); line-height: 1.2; }
 .ovn span + span { margin-left: 0.4em; }
-.ptags { position: absolute; top: clamp(2px, 0.6vw, 5px); right: clamp(2px, 0.6vw, 5px); display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
-.ptag { font-size: clamp(7px, 1.1vw, 10px); border: 1px solid currentColor; border-radius: 2px; padding: 0 3px; line-height: 1.3; }
+.ptags { position: absolute; top: calc(var(--b) * 0.006); right: calc(var(--b) * 0.006); display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.ptag { font-size: max(9px, calc(var(--b) * 0.013)); border: 1px solid currentColor; border-radius: 2px; padding: 0 3px; line-height: 1.3; }
 
-.hua.ov { background: transparent; border: 1px solid currentColor; padding: calc(0.2em - 1px) calc(0.35em - 1px); }
-.hua.oy { border-style: dashed; }
-.ov-lu { color: var(--lu); } .ov-quan { color: var(--quan); } .ov-ke { color: var(--ke); } .ov-ji { color: var(--ji); }
 
-.ctrl { margin-top: 10px; font-size: 12px; }
-.crow { display: grid; gap: 3px; margin-bottom: 4px; }
+.ctrl { font-size: 12px; min-width: 0; }
+.cmp-col .ctrl { margin-top: 8px; }
+.crow { display: grid; gap: 3px; margin-bottom: 3px; }
 .crow.d12 { grid-template-columns: repeat(12, 1fr); }
 .crow.y10 { grid-template-columns: repeat(10, 1fr); }
 .cbtn {
-  display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; padding: 3px 0; line-height: 1.25;
+  display: flex; flex-direction: column; align-items: center; gap: 0; min-width: 0; padding: 2px 0 3px; line-height: 1.25;
   font: inherit; font-size: 11px; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 3px; cursor: pointer;
+  white-space: nowrap;
 }
-.cbtn span:nth-child(n+2) { color: var(--mute); font-size: 10px; }
-.cbtn.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-.cbtn.on span:nth-child(n+2) { color: var(--paper); }
-.cbtn.now { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
-.cbtn.now::after { content: '今'; font-size: 9px; line-height: 1; color: var(--ke); }
-.cbtn.on.now::after { color: var(--paper); }
-.cfoot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin-top: 2px; }
+.cbtn span:nth-child(2) { color: var(--mute); font-size: 10px; }
+.cbtn.on { color: #fff; }
+.cbtn.on span:nth-child(2) { color: #fff; }
+[data-action="decadal"].on { background: var(--c-dec); border-color: var(--c-dec); }
+[data-action="year"].on { background: var(--c-year); border-color: var(--c-year); }
+/* 「今」：按鈕底部 2px 色線，不另佔一行 */
+.cbtn.now { box-shadow: inset 0 -2px 0 var(--ke); }
+[data-action="decadal"].now { box-shadow: inset 0 -2px 0 var(--c-dec); }
+[data-action="year"].now { box-shadow: inset 0 -2px 0 var(--c-year); }
+.cbtn.on.now { box-shadow: inset 0 -2px 0 #fff; }
+.cfoot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
 .cfoot .sum { color: var(--mute); }
 .vsum { margin: 2px 0; } .vsum small { color: var(--mute); margin-right: 6px; }
 .withp { white-space: nowrap; }
@@ -195,20 +245,14 @@ main.compare-view { width: min(100vw - 32px, 920px); }
 .compare-view .topbar .chk { font-size: 14px; }
 
 @media (min-width: 1100px) {
-  main.compare-view { width: min(100vw - 32px, 1256px); }
+  main.compare-view { width: calc(100vw - 32px); }
   .seg { display: none; }
   .cmp-cols { grid-template-columns: 1fr 1fr; }
   .cmp-col.off { display: block; }
-  .cmp-col { --board: min(calc((100vw - 48px) / 2), 620px); }
-  /* 盤縮到 620px 以內，字級跟著縮 */
-  .compare-view .star.major { font-size: clamp(11px, 1.6vw, 14px); }
-  .compare-view .star.minor { font-size: clamp(9px, 1.3vw, 11px); }
-  .compare-view .bright, .compare-view .hua { font-size: clamp(7px, 0.9vw, 8px); }
-  .compare-view .pn, .compare-view .gz { font-size: clamp(8px, 1vw, 10px); }
-  .compare-view .range, .compare-view .ovn, .compare-view .ptag { font-size: clamp(7px, 0.85vw, 9px); }
-  .compare-view .flows { font-size: clamp(8px, 1vw, 10px); }
-  .compare-view .who { font-size: clamp(14px, 1.8vw, 18px); }
-  .compare-view .meta, .compare-view .center dl, .compare-view .tri { font-size: clamp(9px, 1.05vw, 11px); }
+  /* 兩張盤並排：各自 (100vw - 48px) / 2，再受高度限制（160 = 標題列 + 控制列 + 餘裕） */
+  .cmp-col { --b: min((100vw - 48px) / 2, 100vh - 160px); }
+  .ctrl .cbtn { font-size: 12px; }
+  .ctrl .cbtn span:nth-child(2) { font-size: 11px; }
 }
 @media (max-width: 700px) {
   .crow.d12 { grid-template-columns: repeat(6, 1fr); }

@@ -88,3 +88,8 @@ export function relationSuggestions(doc) {
   for (const p of doc.people) for (const l of p.links) if (l.relation) set.add(l.relation);
   return [...set];
 }
+
+export const PRESET_TAGS = ['家人', '朋友', '個案', '學員', '合作'];
+
+// 預設在前，其餘依 doc 裡出現順序，去重
+export const allTags = (doc) => [...new Set([...PRESET_TAGS, ...doc.people.flatMap((p) => p.tags)])];

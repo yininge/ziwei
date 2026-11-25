@@ -1,11 +1,10 @@
 import { visibleStars, visibleFlowStars, decadalOrderForYear } from './engine.js';
 import { GRID } from './layout.js';
-import { search, linksOf, consultationsOf, findPerson, relationSuggestions } from './model.js';
+import { search, linksOf, consultationsOf, findPerson, relationSuggestions, allTags } from './model.js';
 
 const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 
-const MUTAGEN_CLASS = { 祿: 'lu', 權: 'quan', 科: 'ke', 忌: 'ji' };
 const MUT = ['祿', '權', '科', '忌']; // 對應 overlay.mutagen 的索引 0..3
 const CERTAINTY = { exact: '確定', approx: '大約', unknown: '不確定' };
 const NUM = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二'];
@@ -29,14 +28,13 @@ function overlaysOf(board, state) {
 
 function starHtml(s, o) {
   const bright = s.brightness ? `<span class="bright">${esc(s.brightness)}</span>` : '';
-  const badge = s.mutagen
-    ? `<span class="hua hua-${MUTAGEN_CLASS[s.mutagen] || 'other'}">${esc(s.mutagen)}</span>`
-    : '';
+  const badge = s.mutagen ? `<span class="hua natal">${esc(s.mutagen)}</span>` : '';
   const di = o.d ? o.d.mutagen.indexOf(s.name) : -1;
   const yi = o.y ? o.y.mutagen.indexOf(s.name) : -1;
-  const dBadge = di >= 0 ? `<span class="hua ov od ov-${MUTAGEN_CLASS[MUT[di]]}">限${MUT[di]}</span>` : '';
-  const yBadge = yi >= 0 ? `<span class="hua ov oy ov-${MUTAGEN_CLASS[MUT[yi]]}">年${MUT[yi]}</span>` : '';
-  return `<span class="star ${s.type === 'major' ? 'major' : 'minor'}"><span class="sname">${esc(s.name)}</span>${bright}${badge}${dBadge}${yBadge}</span>`;
+  const dBadge = di >= 0 ? `<span class="hua dec">${MUT[di]}</span>` : '';
+  const yBadge = yi >= 0 ? `<span class="hua year">${MUT[yi]}</span>` : '';
+  const kind = s.type === 'major' ? 'major' : s.type === 'adjective' ? 'adj' : 'minor';
+  return `<span class="star ${kind}"><span class="sname">${esc(s.name)}</span>${bright}${badge}${dBadge}${yBadge}</span>`;
 }
 
 function palaceHtml(p, o, bi, selected) {
@@ -100,6 +98,21 @@ function centerHtml(c, input, selected) {
 
 // ---------- 盤 + 控制列（chart / compare 共用） ----------
 
+// 三方四正連線：選中→對宮、選中→兩個三合、兩個三合之間（viewBox 0 0 4 4，中心 = (col-0.5, row-0.5)）
+function linesHtml(c, sel) {
+  const ctr = (i) => {
+    const g = GRID[c.palaces[i].branch];
+    return [g.col - 0.5, g.row - 0.5];
+  };
+  const [opp, tri1, tri2] = [(sel + 6) % 12, (sel + 4) % 12, (sel + 8) % 12];
+  const line = (a, b) => {
+    const [x1, y1] = ctr(a);
+    const [x2, y2] = ctr(b);
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
+  };
+  return `<svg class="lines" viewBox="0 0 4 4" preserveAspectRatio="none" aria-hidden="true">${line(sel, opp)}${line(sel, tri1)}${line(sel, tri2)}${line(tri1, tri2)}</svg>`;
+}
+
 function boardHtml(board, state, bi) {
   const c = board.chart;
   if (!c) return '';
@@ -107,6 +120,7 @@ function boardHtml(board, state, bi) {
   return `<div class="board" data-board="${bi}">
 ${c.palaces.map((p) => palaceHtml(p, o, bi, board.selectedPalace)).join('\n')}
 ${centerHtml(c, board.draft, board.selectedPalace)}
+${board.selectedPalace != null ? linesHtml(c, board.selectedPalace) : ''}
 </div>`;
 }
 
@@ -125,7 +139,7 @@ function controlsHtml(board, state, bi) {
   const dRow = c.decadals
     .map(
       (d) => `<button type="button" class="cbtn${board.decadalOrder === d.order ? ' on' : ''}${nowOrder === d.order ? ' now' : ''}" data-action="decadal" data-board="${bi}" data-order="${d.order}" aria-pressed="${board.decadalOrder === d.order}">
-<span>${NUM[d.order - 1]}限</span><span>${esc(d.stem)}${esc(d.branch)}</span><span>${d.range[0]}–${d.range[1]}</span></button>`,
+<span>${NUM[d.order - 1]}限 ${esc(d.stem)}${esc(d.branch)}</span><span>${d.range[0]}–${d.range[1]}</span></button>`,
     )
     .join('');
   const ord = board.decadalOrder ?? nowOrder ?? 1;
@@ -142,7 +156,7 @@ function controlsHtml(board, state, bi) {
       age = `虛${y.nominalAge}`;
     } catch { /* 略過 */ }
     return `<button type="button" class="cbtn${board.year === yr ? ' on' : ''}${yr === thisYear() ? ' now' : ''}" data-action="year" data-board="${bi}" data-year="${yr}" aria-pressed="${board.year === yr}">
-<span>${yr}</span><span>${esc(gz)}</span><span>${esc(age)}</span></button>`;
+<span>${yr} ${esc(gz)}</span><span>${esc(age)}</span></button>`;
   }).join('');
   return `<div class="ctrl">
   <div class="crow d12">${dRow}</div>
@@ -200,37 +214,50 @@ function msgHtml(state) {
 
 // ---------- chart view ----------
 
-function formHtml(d, saved) {
+function formHtml(d, saved, doc) {
   const lunar = d.calendar === 'lunar';
   const chk = (b) => (b ? ' checked' : '');
   const sel = (v) => (d.timeCertainty === v ? ' selected' : '');
+  const mine = (d.tagsText || '').split(/[,，、]/).map((t) => t.trim()).filter(Boolean);
+  const tags = [...allTags(doc), ...mine.filter((t) => !allTags(doc).includes(t))]; // 草稿裡還沒存的自訂 tag 也留成 chip
+  const chips = tags
+    .map((t) => `<label class="chip-opt"><input type="checkbox" name="tags" value="${esc(t)}"${chk(mine.includes(t))}>${esc(t)}</label>`)
+    .join('');
   return `<form class="inputs" data-form="person" autocomplete="off">
-  <label>姓名 <input name="name" type="text" value="${esc(d.name)}" placeholder="必填"></label>
-  <span class="grp">
-    <label><input type="radio" name="calendar" value="solar"${chk(!lunar)}> 國曆</label>
-    <label><input type="radio" name="calendar" value="lunar"${chk(lunar)}> 農曆</label>
-  </span>
-  <label>日期 <input name="date" type="date" value="${esc(d.date)}" required></label>
-  <label>時間 <input name="time" type="time" value="${esc(d.time)}" required></label>
-  <span class="grp">
-    <label><input type="radio" name="gender" value="M"${chk(d.gender === 'M')}> 男</label>
-    <label><input type="radio" name="gender" value="F"${chk(d.gender === 'F')}> 女</label>
-  </span>
-  ${lunar ? `<label><input type="checkbox" name="leap"${chk(d.leap)}> 閏月</label>` : ''}
-  <label><input type="checkbox" name="fixLeap"${chk(d.fixLeap !== false)}> 閏月後半算下月</label>
-  <label>時辰
-    <select name="timeCertainty">
-      <option value="exact"${sel('exact')}>${CERTAINTY.exact}</option>
-      <option value="approx"${sel('approx')}>${CERTAINTY.approx}</option>
-      <option value="unknown"${sel('unknown')}>${CERTAINTY.unknown}</option>
-    </select>
-  </label>
-  <label>標籤 <input name="tags" type="text" class="wide" value="${esc(d.tagsText)}" placeholder="用逗號分隔"></label>
-  <span class="grp">
-    <button type="submit" name="op" value="chart" class="btn ghost">排盤</button>
-    <button type="submit" name="op" value="save" class="btn">儲存</button>
-    ${saved ? '<button type="button" class="btn danger" data-action="delete">刪除</button>' : ''}
-  </span>
+  <div class="frow">
+    <label>姓名 <input name="name" type="text" value="${esc(d.name)}" placeholder="必填"></label>
+    <span class="grp">
+      <label><input type="radio" name="calendar" value="solar"${chk(!lunar)}> 國曆</label>
+      <label><input type="radio" name="calendar" value="lunar"${chk(lunar)}> 農曆</label>
+    </span>
+    <label>日期 <input name="date" type="date" value="${esc(d.date)}" required></label>
+    <label>時間 <input name="time" type="time" value="${esc(d.time)}" required></label>
+    <span class="grp">
+      <label>快速輸入 <input name="quick" data-role="quick" type="text" inputmode="numeric" class="quick" placeholder="例如：199405111430"></label>
+      <button type="button" class="btn ghost sm" data-action="quick">套用</button>
+    </span>
+    <span class="grp">
+      <label><input type="radio" name="gender" value="M"${chk(d.gender === 'M')}> 男</label>
+      <label><input type="radio" name="gender" value="F"${chk(d.gender === 'F')}> 女</label>
+    </span>
+    ${lunar ? `<label><input type="checkbox" name="leap"${chk(d.leap)}> 閏月</label>` : ''}
+    <label>時辰
+      <select name="timeCertainty">
+        <option value="exact"${sel('exact')}>${CERTAINTY.exact}</option>
+        <option value="approx"${sel('approx')}>${CERTAINTY.approx}</option>
+        <option value="unknown"${sel('unknown')}>${CERTAINTY.unknown}</option>
+      </select>
+    </label>
+  </div>
+  <div class="frow">
+    <span class="grp">標籤 ${chips}</span>
+    <input name="tagsExtra" type="text" placeholder="其他，逗號分隔">
+    <span class="grp">
+      <button type="submit" name="op" value="chart" class="btn ghost">排盤</button>
+      <button type="submit" name="op" value="save" class="btn">儲存</button>
+      ${saved ? '<button type="button" class="btn danger" data-action="delete">刪除</button>' : ''}
+    </span>
+  </div>
 </form>`;
 }
 
@@ -356,10 +383,11 @@ function chartViewHtml(state) {
   const saved = state.selectedId ? findPerson(state.doc, state.selectedId) : null;
   return `<main class="chart-view">
 <header class="topbar"><button type="button" class="btn ghost" data-action="library">‹ 列表</button><h1 class="title">${esc(saved ? saved.name : '新增命盤')}</h1></header>
-${formHtml(board.draft, !!saved)}
+${formHtml(board.draft, !!saved, state.doc)}
 ${msgHtml(state)}
 <div class="chart-layout">
-<div class="board-col">${boardHtml(board, state, 0)}${controlsHtml(board, state, 0)}</div>
+<div class="board-col">${boardHtml(board, state, 0)}</div>
+${controlsHtml(board, state, 0)}
 ${panelHtml(state)}
 </div>
 </main>`;

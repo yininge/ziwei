@@ -23,9 +23,11 @@ const html = (state) => {
 
 test('大限四 + 流年 2026 疊盤出現在 HTML', () => {
   const out = html({ view: 'chart', boards: [board({ decadalOrder: 4, year: 2026 })] });
-  for (const s of ['大夫', '流財', '大祿', '流鸞', '限忌', '年忌', '大限命宮', '流年命宮']) {
+  for (const s of ['大夫', '流財', '大祿', '流鸞', '大限命宮', '流年命宮']) {
     assert.ok(out.includes(s), s);
   }
+  for (const c of ['hua natal', 'hua dec', 'hua year', 'star major', 'star minor', 'star adj']) assert.ok(out.includes(`class="${c}"`) || out.includes(`class="${c} `), c);
+  assert.ok(!out.includes('限忌') && !out.includes('年忌'));
   assert.ok(out.includes('大限 庚辰 33–42 · 流年 2026 丙午 虛42'));
 });
 
@@ -42,6 +44,9 @@ test('三方四正', () => {
   assert.ok(out.includes(`${b.chart.palaces[0].name} ‧ 三方四正：${names}`));
   assert.equal((out.match(/class="palace[^"]* sel"/g) || []).length, 1);
   assert.equal((out.match(/class="palace[^"]* rel"/g) || []).length, 3);
+  assert.ok(out.includes('<svg class="lines"'));
+  assert.equal((out.match(/<line /g) || []).length, 4);
+  assert.ok(!html({ view: 'chart', boards: [board()] }).includes('<svg class="lines"'));
 });
 
 test('合盤畫兩張盤與同步流年開關', () => {

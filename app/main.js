@@ -39,7 +39,7 @@ const blankDraft = () => ({
 });
 
 const draftOf = (p) => ({
-  name: p.name, gender: p.gender, ...p.birth, leap: !!p.birth.leap, fixLeap: p.birth.fixLeap !== false,
+  name: p.name, gender: p.gender, ...p.birth, leap: !!p.birth.leap, fixLeap: true, // fixLeap 固定開（跟老師的站一致）
   timeCertainty: p.timeCertainty || 'exact', tagsText: p.tags.join(', '),
 });
 
@@ -67,9 +67,10 @@ function readPerson(f) {
     date: d.get('date') || A().draft.date,
     time: d.get('time') || A().draft.time,
     leap: d.get('calendar') === 'lunar' && d.has('leap'),
-    fixLeap: d.has('fixLeap'),
+    fixLeap: true,
     timeCertainty: d.get('timeCertainty') || 'exact',
-    tagsText: d.get('tags') || '',
+    // 勾選的 chips + 自訂欄，逗號／頓號分隔、trim、去重
+    tagsText: [...new Set([...d.getAll('tags'), ...(d.get('tagsExtra') || '').split(/[,，、]/)].map((t) => t.trim()).filter(Boolean))].join(', '),
   };
 }
 
@@ -284,6 +285,30 @@ const actions = {
     });
     draw();
   },
+  // 生辰快速輸入：8 位 YYYYMMDD 或 12 位 YYYYMMDDHHmm；日曆模式不動（農曆模式就當農曆日期填入）
+  quick: () => {
+    const f = root.querySelector('form[data-form="person"]');
+    const input = f?.querySelector('[data-role="quick"]');
+    if (!f || !input) return;
+    A().draft = readPerson(f); // 先收住表單上已改的欄位
+    state.error = '';
+    state.notice = '';
+    const v = input.value.replace(/\D/g, '');
+    if (v.length !== 8 && v.length !== 12) {
+      state.error = '要 8 或 12 位數字';
+      return draw();
+    }
+    const [y, m, d, hh, mm] = [v.slice(0, 4), v.slice(4, 6), v.slice(6, 8), v.slice(8, 10), v.slice(10, 12)];
+    const solarOk = A().draft.calendar === 'lunar' || new Date(+y, +m - 1, +d).getDate() === +d;
+    if (+m < 1 || +m > 12 || +d < 1 || +d > 31 || !solarOk || (v.length === 12 && (+hh > 23 || +mm > 59))) {
+      state.error = '日期或時間不合理';
+      return draw();
+    }
+    A().draft.date = `${y}-${m}-${d}`;
+    if (v.length === 12) A().draft.time = `${hh}:${mm}`;
+    recompute();
+    draw();
+  },
   'export-own': () => download(`ziwei-people-${stamp()}.json`, state.doc),
   'export-teacher': () => download(`ziwei-chart-app-${stamp()}.json`, toTeacher(state.doc)),
   import: () => root.querySelector('[data-role="import"]')?.click(),
@@ -410,6 +435,14 @@ const forms = {
     });
   },
 };
+
+// 快速輸入欄按 Enter = 套用，不送出整張表單
+root.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.isComposing && e.target.dataset?.role === 'quick') {
+    e.preventDefault();
+    actions.quick();
+  }
+});
 
 root.addEventListener('submit', (e) => {
   e.preventDefault();
