@@ -12,7 +12,10 @@ const TYPES = {
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.png': 'image/png',
   '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json',
 };
-const BLOCKED_TOP = new Set(['data', 'server.js']);
+const BLOCKED_TOP = new Set(['data', 'server.js', 'worker', 'wrangler.jsonc', '.assetsignore']);
+const validShape = (d) =>
+  !!d && ((d.format === 'ziwei-people' && Array.isArray(d.people)) ||
+    (d.format === 'ziwei-people-enc' && d.data && d.iv && d.kdf));
 const sha = (s) => createHash('sha256').update(s).digest('hex');
 const emptyDoc = () => ({ format: 'ziwei-people', version: 1, people: [] });
 
@@ -63,8 +66,8 @@ export function createApp({ rootDir = HERE, dataFile } = {}) {
     try { text = await readBody(req); } catch (err) { return send(res, err.status || 400, { error: err.message }); }
     let doc;
     try { doc = JSON.parse(text); } catch { return send(res, 400, { error: '不是合法 JSON' }); }
-    if (!doc || doc.format !== 'ziwei-people' || !Array.isArray(doc.people)) {
-      return send(res, 400, { error: '格式不符（需要 format=ziwei-people 與 people 陣列）' });
+    if (!validShape(doc)) {
+      return send(res, 400, { error: '格式不符（需要 ziwei-people 加 people 陣列，或 ziwei-people-enc 加 kdf/iv/data）' });
     }
     const ifMatch = req.headers['if-match'];
     return locked(async () => {

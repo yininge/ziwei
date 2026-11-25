@@ -215,3 +215,14 @@ main.compare-view { width: min(100vw - 32px, 920px); }
   .crow.y10 { grid-template-columns: repeat(5, 1fr); }
   .lib .topbar { flex-wrap: wrap; }
 }
+
+/* ---- 解鎖／設定 ---- */
+.gate { width: min(100vw - 32px, 360px); margin: 0 auto; padding: 18vh 0 40px; }
+.gate-form { display: flex; flex-direction: column; gap: 12px; font-size: 14px; }
+.gate-form label { display: flex; flex-direction: column; gap: 4px; }
+.gate-form label.remember { flex-direction: row; align-items: center; gap: 6px; }
+.gate-form input[type="password"] {
+  font: inherit; color: inherit; background: transparent; border: 1px solid var(--line); border-radius: 3px; padding: 6px 8px;
+}
+.gate-form :focus-visible { outline: 2px solid var(--ke); outline-offset: 2px; }
+.gate-form .btn { align-self: flex-start; }

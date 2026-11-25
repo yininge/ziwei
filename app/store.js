@@ -10,14 +10,15 @@ async function fail(res) {
 export async function load() {
   const res = await fetch('/api/people');
   if (!res.ok) await fail(res);
-  return res.json(); // { version, doc }
+  const j = await res.json();
+  return { version: j.version, raw: j.doc }; // raw：明文 doc、密文 envelope 或空 doc；加解密在 main
 }
 
-export async function save(doc, ifVersion) {
+export async function save(docOrEnvelope, ifVersion) {
   const res = await fetch('/api/people', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', 'If-Match': ifVersion },
-    body: JSON.stringify(doc),
+    body: JSON.stringify(docOrEnvelope),
   });
   if (!res.ok) await fail(res);
   return (await res.json()).version;

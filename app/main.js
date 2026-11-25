@@ -2,6 +2,8 @@ import { createEngine } from './engine.js';
 import { toTeacher, fromTeacher, detect } from './format.js';
 import { render, listHtml } from './render.js';
 import * as store from './store.js';
+import { randomSalt, deriveKey, encryptDoc, decryptDoc, isEncrypted } from './crypto.js';
+import * as keystore from './keystore.js';
 import { EMPTY_DOC, newPerson, findPerson, upsertPerson, removePerson } from './model.js';
 
 const engine = createEngine(window.iztro);
@@ -9,7 +11,11 @@ const { chart } = engine;
 const root = document.getElementById('app');
 
 const state = {
-  view: 'library', // 'library' | 'chart' | 'compare'
+  view: 'unlock', // 'unlock' | 'setup' | 'library' | 'chart' | 'compare'
+  key: null, // CryptoKey；只在記憶體（記住這台裝置時另存 IndexedDB）
+  kdf: null, // { salt, iterations }
+  raw: null, // 伺服器上最新的密文 envelope（解鎖用）
+  plain: null, // setup 時待加密的既有明文 doc
   engine, // render 疊盤用
   doc: EMPTY_DOC(),
   version: '',
@@ -81,13 +87,25 @@ async function commit(newDoc, onOk) {
   state.notice = '';
   state.error = '';
   try {
-    state.version = await store.save(newDoc, state.version);
+    const envelope = await encryptDoc(newDoc, state.key, state.kdf);
+    state.version = await store.save(envelope, state.version);
+    state.raw = envelope;
     state.doc = newDoc;
     onOk?.();
   } catch (err) {
     if (err.code === 'conflict') {
-      state.doc = err.doc;
       state.version = err.version;
+      if (isEncrypted(err.doc)) {
+        state.raw = err.doc;
+        try {
+          state.doc = await decryptDoc(err.doc, state.key);
+          state.kdf = { salt: err.doc.kdf.salt, iterations: err.doc.kdf.iterations };
+        } catch {
+          return lock('資料在別處被重新加密（passphrase 可能已更換），請重新解鎖');
+        }
+      } else {
+        state.doc = err.doc;
+      }
       state.notice = '資料已被另一個視窗更新，已重新載入，請再操作一次';
       const p = state.selectedId && findPerson(state.doc, state.selectedId);
       if (state.selectedId && !p) {
@@ -102,6 +120,19 @@ async function commit(newDoc, onOk) {
       state.error = err.message || '儲存失敗';
     }
   }
+  draw();
+}
+
+async function lock(msg = '') {
+  await keystore.forget();
+  Object.assign(state, { key: null, doc: EMPTY_DOC(), view: 'unlock', selectedId: null, boards: [], q: '', notice: '', error: msg });
+  draw();
+}
+
+function enterLibrary() {
+  state.view = 'library';
+  state.error = '';
+  state.notice = '';
   draw();
 }
 
@@ -178,6 +209,7 @@ async function importFile(file) {
 const actions = {
   new: () => openChart(null),
   open: (el) => openChart(el.dataset.id),
+  lock: () => lock(),
   library: () => {
     state.view = 'library';
     state.error = '';
@@ -278,6 +310,46 @@ root.addEventListener('click', (e) => {
 });
 
 const forms = {
+  async unlock(f) {
+    const d = new FormData(f);
+    state.error = '';
+    if (!state.raw) {
+      state.error = '尚未讀到資料，請重新整理頁面';
+      return draw();
+    }
+    try {
+      const kdf = state.raw.kdf;
+      const key = await deriveKey(d.get('pass') || '', kdf.salt, kdf.iterations);
+      state.doc = await decryptDoc(state.raw, key);
+      state.key = key;
+      state.kdf = { salt: kdf.salt, iterations: kdf.iterations };
+      if (d.has('remember')) await keystore.remember(key, state.kdf);
+      return enterLibrary();
+    } catch {
+      state.error = 'passphrase 錯誤';
+      draw();
+    }
+  },
+  async setup(f) {
+    const d = new FormData(f);
+    const pass = d.get('pass') || '';
+    state.error = '';
+    if (pass.length < 8) state.error = 'passphrase 至少 8 個字';
+    else if (pass !== d.get('pass2')) state.error = '兩次輸入不一樣';
+    if (state.error) return draw();
+    const kdf = { salt: randomSalt(), iterations: 600000 };
+    state.key = await deriveKey(pass, kdf.salt, kdf.iterations);
+    state.kdf = kdf;
+    await commit(state.plain || EMPTY_DOC(), () => {
+      state.plain = null;
+      state.view = 'library';
+    });
+    if (state.view === 'setup') {
+      state.key = null; // 沒存成功就不算設定完成
+      return;
+    }
+    if (d.has('remember')) await keystore.remember(state.key, state.kdf);
+  },
   person(f, e) {
     A().draft = readPerson(f);
     state.error = '';
@@ -372,9 +444,23 @@ root.addEventListener('input', (e) => {
 
 (async () => {
   try {
-    const { version, doc } = await store.load();
-    state.doc = doc;
+    const { version, raw } = await store.load();
     state.version = version;
+    if (isEncrypted(raw)) {
+      state.raw = raw;
+      const mem = await keystore.getRemembered();
+      if (mem) {
+        try {
+          state.doc = await decryptDoc(raw, mem.key);
+          state.key = mem.key;
+          state.kdf = { salt: raw.kdf.salt, iterations: raw.kdf.iterations };
+          state.view = 'library';
+        } catch { /* 記住的金鑰失效（換過 passphrase）→ 解鎖畫面 */ }
+      }
+    } else {
+      state.plain = raw?.format === 'ziwei-people' && Array.isArray(raw.people) ? raw : EMPTY_DOC();
+      state.view = 'setup';
+    }
   } catch (err) {
     state.error = `讀取資料失敗：${err.message}`;
   }

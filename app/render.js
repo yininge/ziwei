@@ -186,6 +186,7 @@ function libraryHtml(state) {
 <button type="button" class="btn ghost" data-action="export-teacher" title="老師網站的格式">匯出（老師格式）</button>
 <button type="button" class="btn ghost" data-action="import">匯入</button>
 <input type="file" accept=".json,application/json" data-role="import" hidden>
+<button type="button" class="btn ghost" data-action="lock">鎖定</button>
 <button type="button" class="btn" data-action="new">＋ 新增</button></header>
 <input class="search" data-role="search" type="search" placeholder="搜尋姓名、標籤、問題與分析" value="${esc(state.q)}" autocomplete="off">
 ${msgHtml(state)}
@@ -383,7 +384,40 @@ ${msgHtml(state)}
 </main>`;
 }
 
+// ---------- unlock / setup ----------
+
+const gateHtml = (state, formName, lead, fields, submit) => `<main class="gate">
+<h1 class="title">紫微排盤</h1>
+${lead ? `<p class="hint">${lead}</p>` : ''}
+<form class="gate-form" data-form="${formName}" autocomplete="off">
+${fields}
+<label class="remember"><input type="checkbox" name="remember"> 記住這台裝置</label>
+${msgHtml(state)}
+<button type="submit" class="btn">${submit}</button>
+</form>
+</main>`;
+
+const passField = (name, label, auto) =>
+  `<label>${label}<input type="password" name="${name}" autocomplete="${auto}" required autofocus></label>`;
+
+export function unlockHtml(state) {
+  return gateHtml(state, 'unlock', '', passField('pass', 'passphrase', 'current-password'), '解鎖');
+}
+
+export function setupHtml(state) {
+  return gateHtml(
+    state, 'setup',
+    '第一次使用，請設定 passphrase。忘了就沒人能解開，請存進密碼管理器。',
+    passField('pass', 'passphrase', 'new-password') + passField('pass2', '再輸入一次', 'new-password').replace(' autofocus', ''),
+    '設定並開始',
+  );
+}
+
 export function render(state, root) {
   root.innerHTML =
-    state.view === 'library' ? libraryHtml(state) : state.view === 'compare' ? compareViewHtml(state) : chartViewHtml(state);
+    state.view === 'unlock' ? unlockHtml(state)
+    : state.view === 'setup' ? setupHtml(state)
+    : state.view === 'library' ? libraryHtml(state)
+    : state.view === 'compare' ? compareViewHtml(state)
+    : chartViewHtml(state);
 }

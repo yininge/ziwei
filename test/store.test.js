@@ -90,6 +90,26 @@ test('不能讀到 server.js、data/、.git', async () => {
   }
 });
 
+test('密文 envelope PUT 成功；GET 取回後解密還原；缺欄位的 enc → 400', async () => {
+  const { deriveKey, randomSalt, encryptDoc, decryptDoc } = await import('../app/crypto.js');
+  const kdf = { salt: randomSalt(), iterations: 1000 };
+  const key = await deriveKey('smoke test pass', kdf.salt, kdf.iterations);
+  const env = await encryptDoc(doc1, key, kdf);
+  const { version } = await (await get()).json();
+  assert.equal((await put({ format: 'ziwei-people-enc', iv: 'x' }, version)).status, 400);
+  const res = await put(env, version);
+  assert.equal(res.status, 200);
+  const j = await (await get()).json();
+  assert.equal(j.version, (await res.json()).version);
+  assert.deepEqual(await decryptDoc(j.doc, await deriveKey('smoke test pass', j.doc.kdf.salt, j.doc.kdf.iterations)), doc1);
+});
+
+test('不能讀到 worker/、wrangler.jsonc、.assetsignore', async () => {
+  for (const p of ['/worker/index.js', '/wrangler.jsonc', '/.assetsignore']) {
+    assert.equal((await get(p)).status, 404, p);
+  }
+});
+
 test('GET /chart.html → 200 text/html；/ 也是', async () => {
   for (const p of ['/chart.html', '/']) {
     const res = await get(p);
