@@ -26,6 +26,18 @@ export function visibleFlowStars(names, scope, { showAll = false } = {}) {
   return scope === 'decadal' ? list.map((n) => (n.startsWith('運') ? '大' + n.slice(1) : n)) : list;
 }
 
+// 該年虛歲落在哪個大限（1..12）；太小或太老、或排不出該年 → null
+export function decadalOrderForYear(c, year) {
+  let age;
+  try {
+    age = c._raw.horoscope(`${year}-07-01`).age.nominalAge;
+  } catch {
+    return null;
+  }
+  const d = c.decadals.find((x) => age >= x.range[0] && age <= x.range[1]);
+  return d ? d.order : null;
+}
+
 export function createEngine(iztro) {
   // 老師流派：庚干 陽武同相，其餘預設
   iztro.astro.config({ mutagens: { 庚: ['太陽', '武曲', '天同', '天相'] } });

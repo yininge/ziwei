@@ -1,4 +1,4 @@
-import { visibleStars } from './engine.js';
+import { visibleStars, visibleFlowStars, decadalOrderForYear } from './engine.js';
 import { GRID } from './layout.js';
 import { search, linksOf, consultationsOf, findPerson, relationSuggestions } from './model.js';
 
@@ -6,23 +6,67 @@ const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 
 const MUTAGEN_CLASS = { 祿: 'lu', 權: 'quan', 科: 'ke', 忌: 'ji' };
+const MUT = ['祿', '權', '科', '忌']; // 對應 overlay.mutagen 的索引 0..3
 const CERTAINTY = { exact: '確定', approx: '大約', unknown: '不確定' };
+const NUM = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二'];
+const thisYear = () => new Date().getFullYear();
+// 三方四正：對宮、兩個三合（palace index 相差 6、4、8）；順序讓命宮顯示成「財帛、官祿、遷移」
+const relatedOf = (i) => [(i + 8) % 12, (i + 4) % 12, (i + 6) % 12];
 
-function starHtml(s) {
+// 疊盤資料；某年排不出來（例如早於出生）就當沒疊，不讓整頁畫不出來
+function overlaysOf(board, state) {
+  const o = { d: null, y: null, showAll: !!state.showAllFlow };
+  const c = board.chart;
+  if (!c) return o;
+  try {
+    if (board.decadalOrder) o.d = state.engine.decadalOverlay(c, board.decadalOrder);
+  } catch { /* 略過 */ }
+  try {
+    if (board.year) o.y = state.engine.yearlyOverlay(c, board.year);
+  } catch { /* 略過 */ }
+  return o;
+}
+
+function starHtml(s, o) {
   const bright = s.brightness ? `<span class="bright">${esc(s.brightness)}</span>` : '';
   const badge = s.mutagen
     ? `<span class="hua hua-${MUTAGEN_CLASS[s.mutagen] || 'other'}">${esc(s.mutagen)}</span>`
     : '';
-  return `<span class="star ${s.type === 'major' ? 'major' : 'minor'}"><span class="sname">${esc(s.name)}</span>${bright}${badge}</span>`;
+  const di = o.d ? o.d.mutagen.indexOf(s.name) : -1;
+  const yi = o.y ? o.y.mutagen.indexOf(s.name) : -1;
+  const dBadge = di >= 0 ? `<span class="hua ov od ov-${MUTAGEN_CLASS[MUT[di]]}">限${MUT[di]}</span>` : '';
+  const yBadge = yi >= 0 ? `<span class="hua ov oy ov-${MUTAGEN_CLASS[MUT[yi]]}">年${MUT[yi]}</span>` : '';
+  return `<span class="star ${s.type === 'major' ? 'major' : 'minor'}"><span class="sname">${esc(s.name)}</span>${bright}${badge}${dBadge}${yBadge}</span>`;
 }
 
-function palaceHtml(p) {
+function palaceHtml(p, o, bi, selected) {
   const pos = GRID[p.branch];
-  const stars = visibleStars(p).map(starHtml).join('');
+  const i = p.index;
+  const stars = visibleStars(p).map((s) => starHtml(s, o)).join('');
   const body = p.isBody ? '<span class="body-tag">身</span>' : '';
-  return `<div class="palace${p.name === '命宮' ? ' is-life' : ''}" style="grid-row:${pos.row};grid-column:${pos.col}">
+  const df = o.d ? visibleFlowStars(o.d.stars[i], 'decadal', { showAll: o.showAll }) : [];
+  const yf = o.y ? visibleFlowStars(o.y.stars[i], 'yearly', { showAll: o.showAll }) : [];
+  const flows =
+    df.length || yf.length
+      ? `<div class="flows">${df.map((n) => `<span class="f-d">${esc(n)}</span>`).join('')}${yf.map((n) => `<span class="f-y">${esc(n)}</span>`).join('')}</div>`
+      : '';
+  const dn = o.d?.shortNames[i];
+  const yn = o.y?.shortNames[i];
+  const shorts =
+    dn || yn
+      ? `<span class="ovn">${dn ? `<span class="f-d">${esc(dn)}</span>` : ''}${yn ? `<span class="f-y">${esc(yn)}</span>` : ''}</span>`
+      : '';
+  const tags = `${dn === '大命' ? '<span class="ptag f-d">大限命宮</span>' : ''}${yn === '流命' ? '<span class="ptag f-y">流年命宮</span>' : ''}`;
+  const cls = [
+    'palace',
+    p.name === '命宮' ? 'is-life' : '',
+    selected === i ? 'sel' : selected != null && relatedOf(selected).includes(i) ? 'rel' : '',
+  ].filter(Boolean).join(' ');
+  return `<div class="${cls}" style="grid-row:${pos.row};grid-column:${pos.col}" data-action="palace" data-board="${bi}" data-index="${i}">
   <div class="stars">${stars}</div>
-  <div class="pname"><span class="pn">${esc(p.name)}</span>${body}<span class="range">${esc(p.range[0])}–${esc(p.range[1])}</span></div>
+  ${flows}
+  ${tags ? `<div class="ptags">${tags}</div>` : ''}
+  <div class="pname"><span class="pn">${esc(p.name)}</span>${body}${shorts}<span class="range">${esc(p.range[0])}–${esc(p.range[1])}</span></div>
   <div class="gz">${esc(p.stem)}${esc(p.branch)}</div>
 </div>`;
 }
@@ -31,9 +75,13 @@ function row(label, value) {
   return `<dt>${esc(label)}</dt><dd>${esc(value)}</dd>`;
 }
 
-function centerHtml(c, input) {
+function centerHtml(c, input, selected) {
   const name = (input.name || '').trim() || '未命名';
   const sex = input.gender === 'M' ? '男命' : '女命';
+  const tri =
+    selected != null
+      ? `<p class="tri">${esc(c.palaces[selected].name)} ‧ 三方四正：${relatedOf(selected).map((j) => esc(c.palaces[j].name)).join('、')}</p>`
+      : '';
   return `<div class="center">
   <h1 class="who">${esc(name)}</h1>
   <p class="meta">${sex} · ${esc(c.fiveElementsClass)}</p>
@@ -46,6 +94,60 @@ function centerHtml(c, input) {
     ${row('命宮', c.soulPalace)}
     ${row('身宮', c.bodyPalace)}
   </dl>
+  ${tri}
+</div>`;
+}
+
+// ---------- 盤 + 控制列（chart / compare 共用） ----------
+
+function boardHtml(board, state, bi) {
+  const c = board.chart;
+  if (!c) return '';
+  const o = overlaysOf(board, state);
+  return `<div class="board" data-board="${bi}">
+${c.palaces.map((p) => palaceHtml(p, o, bi, board.selectedPalace)).join('\n')}
+${centerHtml(c, board.draft, board.selectedPalace)}
+</div>`;
+}
+
+function summaryText(o) {
+  const parts = [];
+  if (o.d) parts.push(`大限 ${o.d.stem}${o.d.branch} ${o.d.range[0]}–${o.d.range[1]}`);
+  if (o.y) parts.push(`流年 ${o.y.year} ${o.y.stem}${o.y.branch} 虛${o.y.nominalAge}`);
+  return parts.length ? parts.join(' · ') : '本命';
+}
+
+function controlsHtml(board, state, bi) {
+  const c = board.chart;
+  if (!c) return '';
+  const o = overlaysOf(board, state);
+  const nowOrder = decadalOrderForYear(c, thisYear());
+  const dRow = c.decadals
+    .map(
+      (d) => `<button type="button" class="cbtn${board.decadalOrder === d.order ? ' on' : ''}${nowOrder === d.order ? ' now' : ''}" data-action="decadal" data-board="${bi}" data-order="${d.order}" aria-pressed="${board.decadalOrder === d.order}">
+<span>${NUM[d.order - 1]}限</span><span>${esc(d.stem)}${esc(d.branch)}</span><span>${d.range[0]}–${d.range[1]}</span></button>`,
+    )
+    .join('');
+  const ord = board.decadalOrder ?? nowOrder ?? 1;
+  const dec = c.decadals.find((d) => d.order === ord);
+  const yRow = Array.from({ length: 10 }, (_, k) => {
+    // 跟老師一樣把 range 當實歲排年份（四限 33–42 → 2018–2027）；
+    // 嚴格講 iztro 的 range 是虛歲、會晚一年，Yi 2026-11-24 指示結果跟老師。
+    const yr = c.birthYear + dec.range[0] + k;
+    let gz = '';
+    let age = '';
+    try {
+      const y = state.engine.yearlyOverlay(c, yr);
+      gz = y.stem + y.branch;
+      age = `虛${y.nominalAge}`;
+    } catch { /* 略過 */ }
+    return `<button type="button" class="cbtn${board.year === yr ? ' on' : ''}${yr === thisYear() ? ' now' : ''}" data-action="year" data-board="${bi}" data-year="${yr}" aria-pressed="${board.year === yr}">
+<span>${yr}</span><span>${esc(gz)}</span><span>${esc(age)}</span></button>`;
+  }).join('');
+  return `<div class="ctrl">
+  <div class="crow d12">${dRow}</div>
+  <div class="crow y10">${yRow}</div>
+  <div class="cfoot"><label class="chk"><input type="checkbox" data-action="showflow"${state.showAllFlow ? ' checked' : ''}> 顯示全部流曜</label><span class="sum">${esc(summaryText(o))}</span></div>
 </div>`;
 }
 
@@ -79,7 +181,12 @@ export function listHtml(state) {
 
 function libraryHtml(state) {
   return `<main class="lib">
-<header class="topbar"><h1 class="title">紫微排盤</h1><button type="button" class="btn" data-action="new">＋ 新增</button></header>
+<header class="topbar"><h1 class="title">紫微排盤</h1>
+<button type="button" class="btn ghost" data-action="export-own">匯出</button>
+<button type="button" class="btn ghost" data-action="export-teacher" title="老師網站的格式">匯出（老師格式）</button>
+<button type="button" class="btn ghost" data-action="import">匯入</button>
+<input type="file" accept=".json,application/json" data-role="import" hidden>
+<button type="button" class="btn" data-action="new">＋ 新增</button></header>
 <input class="search" data-role="search" type="search" placeholder="搜尋姓名、標籤、問題與分析" value="${esc(state.q)}" autocomplete="off">
 ${msgHtml(state)}
 <div id="list" class="list">${listHtml(state)}</div>
@@ -157,21 +264,42 @@ function consultForm(state, v, formName, cid) {
 </form>`;
 }
 
+// 紀錄上的盤面摘要，例如「四限 庚辰 · 2026 · 官祿」；沒有任何盤面資訊就回空字串
+function viewSummary(v, chart) {
+  const parts = [];
+  if (v?.decadalOrder) {
+    const d = chart?.decadals.find((x) => x.order === v.decadalOrder);
+    parts.push(`${NUM[v.decadalOrder - 1]}限${d ? ` ${d.stem}${d.branch}` : ''}`);
+  }
+  if (v?.year) parts.push(String(v.year));
+  if (v?.palace != null && chart?.palaces[v.palace]) parts.push(chart.palaces[v.palace].name);
+  return parts.join(' · ');
+}
+
 function consultTab(state) {
   const id = state.selectedId;
   if (!id) return '<p class="hint">請先儲存這個人，才能記問題與分析。</p>';
+  const chart = state.boards[0]?.chart;
   const items = consultationsOf(state.doc, id)
     .map((c) => {
       const own = c.ownerId === id;
       if (own && state.editingConsult === c.id) {
         return `<article class="cons">${consultForm(state, c, 'consult-edit', c.id)}</article>`;
       }
-      const names = c.with.filter((w) => w !== id).map((w) => findPerson(state.doc, w)?.name || '?');
+      const withs = c.with.filter((w) => w !== id);
       const owner = own ? '' : `<span class="owner">（記在 ${esc(c.ownerName || '未命名')} 的盤）</span>`;
+      const sum = own ? viewSummary(c.view, chart) : '';
+      const withHtml = withs
+        .map((w) => {
+          const o = findPerson(state.doc, w);
+          return `<span class="withp">${esc(o?.name || '?')}${o ? ` <button type="button" class="btn ghost sm" data-action="compare" data-id="${esc(w)}">並列</button>` : ''}</span>`;
+        })
+        .join('、');
       return `<article class="cons">
   <div class="c-head"><time>${esc(c.date)}</time> <b>${esc(c.question || '（未填問題）')}</b> ${owner}</div>
+  ${sum ? `<div class="vsum"><small>${esc(sum)}</small> <button type="button" class="btn ghost sm" data-action="cons-view" data-cid="${esc(c.id)}">回到盤面</button></div>` : ''}
   ${c.analysis ? `<p class="analysis">${esc(c.analysis)}</p>` : ''}
-  ${names.length ? `<small class="with">合盤：${names.map(esc).join('、')}</small>` : ''}
+  ${withs.length ? `<small class="with">合盤：${withHtml}</small>` : ''}
   ${own ? `<div class="acts"><button type="button" class="btn ghost sm" data-action="cons-edit" data-cid="${esc(c.id)}">編輯</button><button type="button" class="btn ghost sm" data-action="cons-del" data-cid="${esc(c.id)}">刪除</button></div>` : ''}
 </article>`;
     })
@@ -187,7 +315,7 @@ function linksTab(state) {
     .map((l) => {
       const label = `${l.direction === 'in' ? '← ' : ''}`;
       const rel = l.relation ? ` · ${esc(l.relation)}` : '';
-      return `<li class="chip link"><span>${label}<button type="button" class="linkname" data-action="open" data-id="${esc(l.id)}">${esc(l.name || '未命名')}</button>${rel}</span>${
+      return `<li class="chip link"><span>${label}<button type="button" class="linkname" data-action="open" data-id="${esc(l.id)}">${esc(l.name || '未命名')}</button>${rel}</span><button type="button" class="btn ghost sm" data-action="compare" data-id="${esc(l.id)}">並列</button>${
         l.direction === 'out' ? `<button type="button" class="x" data-action="link-del" data-id="${esc(l.id)}" aria-label="移除關聯">×</button>` : ''
       }${l.note ? `<small class="note">${esc(l.note)}</small>` : ''}</li>`;
     })
@@ -223,22 +351,39 @@ function panelHtml(state) {
 }
 
 function chartViewHtml(state) {
-  const { chart: c, draft: d } = state;
+  const board = state.boards[0];
   const saved = state.selectedId ? findPerson(state.doc, state.selectedId) : null;
   return `<main class="chart-view">
 <header class="topbar"><button type="button" class="btn ghost" data-action="library">‹ 列表</button><h1 class="title">${esc(saved ? saved.name : '新增命盤')}</h1></header>
-${formHtml(d, !!saved)}
+${formHtml(board.draft, !!saved)}
 ${msgHtml(state)}
 <div class="chart-layout">
-<div class="board-col">${c ? `<div class="board">
-${c.palaces.map(palaceHtml).join('\n')}
-${centerHtml(c, d)}
-</div>` : ''}</div>
+<div class="board-col">${boardHtml(board, state, 0)}${controlsHtml(board, state, 0)}</div>
 ${panelHtml(state)}
 </div>
 </main>`;
 }
 
+// ---------- compare view ----------
+
+function compareViewHtml(state) {
+  const [a, b] = state.boards;
+  const { side, syncYear } = state.compare;
+  const nm = (bd) => (bd.draft.name || '').trim() || '未命名';
+  const col = (bd, i) =>
+    `<section class="cmp-col${i === side ? '' : ' off'}">${boardHtml(bd, state, i)}${controlsHtml(bd, state, i)}</section>`;
+  const seg = [a, b]
+    .map((bd, i) => `<button type="button" class="${i === side ? 'on' : ''}" data-action="side" data-side="${i}">${i === 0 ? '甲' : '乙'} ${esc(nm(bd))}</button>`)
+    .join('');
+  return `<main class="compare-view">
+<header class="topbar"><button type="button" class="btn ghost" data-action="compare-back">‹ 返回</button><h1 class="title">${esc(nm(a))} × ${esc(nm(b))}</h1><label class="chk"><input type="checkbox" data-action="sync"${syncYear ? ' checked' : ''}> 同步流年</label></header>
+${msgHtml(state)}
+<div class="seg" role="group" aria-label="切換命盤">${seg}</div>
+<div class="cmp-cols">${col(a, 0)}${col(b, 1)}</div>
+</main>`;
+}
+
 export function render(state, root) {
-  root.innerHTML = state.view === 'library' ? libraryHtml(state) : chartViewHtml(state);
+  root.innerHTML =
+    state.view === 'library' ? libraryHtml(state) : state.view === 'compare' ? compareViewHtml(state) : chartViewHtml(state);
 }

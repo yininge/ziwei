@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
-import { createEngine, timeIndexOf, visibleStars, visibleFlowStars } from '../app/engine.js';
+import { createEngine, timeIndexOf, visibleStars, visibleFlowStars, decadalOrderForYear } from '../app/engine.js';
 
 globalThis.self ??= globalThis;
 const iztro = createRequire(import.meta.url)('../vendor/iztro.min.js');
@@ -102,4 +102,12 @@ test('大限邊界', () => {
   assert.equal(d.branch, '未');
   assert.deepEqual(d.range, [3, 12]);
   assert.throws(() => decadalOverlay(c, 13));
+});
+
+test('decadalOrderForYear', () => {
+  const c = mk(golden('A_natal'));
+  assert.equal(decadalOrderForYear(c, 2026), 4);
+  assert.equal(decadalOrderForYear(c, 1995), 1);
+  assert.equal(decadalOrderForYear(c, 2027), 5);
+  assert.equal(decadalOrderForYear(c, 1985), null);
 });

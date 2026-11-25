@@ -1,19 +1,23 @@
 import { createEngine } from './engine.js';
+import { toTeacher, fromTeacher, detect } from './format.js';
 import { render, listHtml } from './render.js';
 import * as store from './store.js';
 import { EMPTY_DOC, newPerson, findPerson, upsertPerson, removePerson } from './model.js';
 
-const { chart } = createEngine(window.iztro);
+const engine = createEngine(window.iztro);
+const { chart } = engine;
 const root = document.getElementById('app');
 
 const state = {
-  view: 'library', // 'library' | 'chart'
+  view: 'library', // 'library' | 'chart' | 'compare'
+  engine, // render 疊盤用
   doc: EMPTY_DOC(),
   version: '',
   q: '',
   selectedId: null, // null = 新增中、尚未儲存
-  draft: null,
-  chart: null,
+  boards: [], // chart view 只用 [0]；compare 用 [0]、[1]
+  showAllFlow: false,
+  compare: { side: 0, syncYear: true },
   error: '',
   notice: '',
   panelTab: 'info',
@@ -33,9 +37,14 @@ const draftOf = (p) => ({
   timeCertainty: p.timeCertainty || 'exact', tagsText: p.tags.join(', '),
 });
 
-function recompute() {
+const blankBoard = (personId, draft) => ({
+  personId, draft, chart: null, decadalOrder: null, year: null, selectedPalace: null,
+});
+const A = () => state.boards[0];
+
+function recompute(board = A()) {
   try {
-    state.chart = chart(state.draft);
+    board.chart = chart(board.draft);
     return true;
   } catch (err) {
     state.error = `排盤失敗：${err.message}`; // 表單留著、上一張盤留著
@@ -49,8 +58,8 @@ function readPerson(f) {
     name: (d.get('name') || '').trim(),
     gender: d.get('gender'),
     calendar: d.get('calendar'),
-    date: d.get('date') || state.draft.date,
-    time: d.get('time') || state.draft.time,
+    date: d.get('date') || A().draft.date,
+    time: d.get('time') || A().draft.time,
     leap: d.get('calendar') === 'lunar' && d.has('leap'),
     fixLeap: d.has('fixLeap'),
     timeCertainty: d.get('timeCertainty') || 'exact',
@@ -86,7 +95,7 @@ async function commit(newDoc, onOk) {
         state.selectedId = null;
       } else if (p) {
         // 表單草稿換成重載後的資料，否則再按一次儲存會把別人的改動蓋掉
-        state.draft = draftOf(p);
+        A().draft = draftOf(p);
         recompute();
       }
     } else {
@@ -107,13 +116,62 @@ function openChart(id) {
   state.editingConsult = null;
   state.forms = { consult: {}, link: {} };
   if (id) {
-    state.draft = draftOf(findPerson(state.doc, id));
+    state.boards = [blankBoard(id, draftOf(findPerson(state.doc, id)))];
   } else {
-    state.draft = blankDraft();
+    state.boards = [blankBoard(null, blankDraft())];
     state.panelTab = 'info';
   }
-  state.chart = null;
   recompute();
+  draw();
+}
+
+// 合盤用：依已存的人建一張從本命開始的盤
+function boardOf(id) {
+  const b = blankBoard(id, draftOf(findPerson(state.doc, id)));
+  recompute(b);
+  return b;
+}
+
+const boardEl = (el) => state.boards[Number(el.dataset.board)];
+
+function download(name, obj) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' }));
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+const stamp = () => new Date().toLocaleDateString('sv-SE');
+
+async function importFile(file) {
+  state.error = '';
+  state.notice = '';
+  let json;
+  try {
+    json = JSON.parse(await file.text());
+  } catch {
+    state.error = '匯入失敗：不是有效的 JSON 檔';
+    return draw();
+  }
+  const kind = detect(json);
+  if (kind === 'own') {
+    if (!Array.isArray(json.people)) {
+      state.error = '匯入失敗：缺少 people 欄位';
+      return draw();
+    }
+    if (!confirm('會以匯入的內容取代目前全部資料，確定？')) return draw();
+    return commit(json, () => {
+      state.notice = `已匯入 ${json.people.length} 人（取代原有資料）`;
+    });
+  }
+  if (kind === 'teacher') {
+    const next = fromTeacher(json, state.doc);
+    const n = next.people.length - state.doc.people.length;
+    return commit(next, () => {
+      state.notice = `已匯入 ${n} 人（略過 ${(json.records || []).length - n} 筆重複）`;
+    });
+  }
+  state.error = '匯入失敗：不認得的格式';
   draw();
 }
 
@@ -139,6 +197,64 @@ const actions = {
       state.selectedId = null;
     });
   },
+  palace: (el) => {
+    const b = boardEl(el);
+    const i = Number(el.dataset.index);
+    b.selectedPalace = b.selectedPalace === i ? null : i;
+    draw();
+  },
+  decadal: (el) => {
+    const b = boardEl(el);
+    const o = Number(el.dataset.order);
+    b.decadalOrder = b.decadalOrder === o ? null : o;
+    draw();
+  },
+  year: (el) => {
+    const b = boardEl(el);
+    const y = Number(el.dataset.year);
+    const next = b.year === y ? null : y;
+    if (state.view === 'compare' && state.compare.syncYear) state.boards.forEach((x) => (x.year = next));
+    else b.year = next;
+    draw();
+  },
+  showflow: (el) => {
+    state.showAllFlow = el.checked;
+    draw();
+  },
+  sync: (el) => {
+    state.compare.syncYear = el.checked;
+    draw();
+  },
+  side: (el) => {
+    state.compare.side = Number(el.dataset.side);
+    draw();
+  },
+  compare: (el) => {
+    if (!state.selectedId || !findPerson(state.doc, el.dataset.id)) return;
+    Object.assign(A(), { decadalOrder: null, year: null, selectedPalace: null });
+    state.boards = [A(), boardOf(el.dataset.id)];
+    state.compare.side = 0;
+    state.view = 'compare';
+    draw();
+  },
+  'compare-back': () => {
+    state.view = 'chart';
+    state.boards = [A()];
+    draw();
+  },
+  'cons-view': (el) => {
+    const c = me()?.consultations.find((x) => x.id === el.dataset.cid);
+    if (!c) return;
+    Object.assign(A(), {
+      decadalOrder: c.view?.decadalOrder ?? null,
+      year: c.view?.year ?? null,
+      selectedPalace: c.view?.palace ?? null,
+    });
+    draw();
+  },
+  'export-own': () => download(`ziwei-people-${stamp()}.json`, state.doc),
+  'export-teacher': () => download(`ziwei-chart-app-${stamp()}.json`, toTeacher(state.doc)),
+  import: () => root.querySelector('[data-role="import"]')?.click(),
   'cons-edit': (el) => {
     state.editingConsult = el.dataset.cid;
     draw();
@@ -163,17 +279,17 @@ root.addEventListener('click', (e) => {
 
 const forms = {
   person(f, e) {
-    state.draft = readPerson(f);
+    A().draft = readPerson(f);
     state.error = '';
     state.notice = '';
     const ok = recompute();
     if (e.submitter?.value !== 'save') return draw();
-    if (!state.draft.name) {
+    if (!A().draft.name) {
       state.error = '請填姓名';
       return draw();
     }
     if (!ok) return draw();
-    const d = state.draft;
+    const d = A().draft;
     const fields = {
       name: d.name,
       gender: d.gender,
@@ -193,7 +309,7 @@ const forms = {
       state.error = '問題或分析至少填一項';
       return draw();
     }
-    const c = { id: crypto.randomUUID(), date: v.date, question: v.question.trim(), analysis: v.analysis.trim(), view: { scope: 'natal' }, with: v.with };
+    const c = { id: crypto.randomUUID(), date: v.date, question: v.question.trim(), analysis: v.analysis.trim(), view: { decadalOrder: A().decadalOrder, year: A().year, palace: A().selectedPalace }, with: v.with };
     commit(withPerson((p) => ({ ...p, consultations: [...p.consultations, c] })), () => {
       state.forms.consult = {};
     });
@@ -230,8 +346,14 @@ root.addEventListener('submit', (e) => {
 
 // 農曆／國曆切換時立刻重畫，閏月 checkbox 才會跟著出現或消失
 root.addEventListener('change', (e) => {
+  if (e.target.dataset.role === 'import') {
+    const file = e.target.files[0];
+    e.target.value = ''; // 同一個檔可以再選一次
+    if (file) importFile(file);
+    return;
+  }
   if (e.target.name !== 'calendar') return;
-  state.draft = readPerson(e.target.form);
+  A().draft = readPerson(e.target.form);
   recompute();
   draw();
 });
