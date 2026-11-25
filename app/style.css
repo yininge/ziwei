@@ -22,7 +22,7 @@
   /* 四柱五行色（中宮） */
   --el-wood: #1b7d46; --el-fire: #c62828; --el-earth: #8a6d3b; --el-metal: #c98a1e; --el-water: #1f5fbf;
   /* 盤以外的高度估值（見 .chart-layout 註解） */
-  --chrome: 236px;
+  --chrome: 278px;
   font-family: "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
 }
 * { box-sizing: border-box; }
@@ -179,7 +179,7 @@ main.chart-view { width: min(100vw - 32px, 1600px); }
 
 .chart-layout { display: grid; grid-template-columns: 1fr; gap: 8px 24px; }
 /* 盤邊長：手機 = 100vw - 32px；平板起再受視窗高度限制（--chrome = 盤以外的高度估值：
-   頂部 padding 8 + 標題列 34 + 表單兩列 70 + 控制列（兩條 + 開關摘要）102 + 餘裕 22） */
+   頂部 padding 8 + 標題列 34 + 表單兩列 70 + 控制列 102 + 盤上工具列 42 + 餘裕 22） */
 .chart-layout, .cmp-col { --b: calc(100vw - 32px); }
 .board-col, .cmp-col { min-width: 0; }
 .board-col { grid-area: board; }
@@ -188,7 +188,7 @@ main.chart-view { width: min(100vw - 32px, 1600px); }
 .chart-layout { grid-template-areas: "board" "ctrl" "panel"; }
 @media (min-width: 700px) {
   .chart-layout { --b: min(100vw - 32px, max(420px, 100vh - var(--chrome))); }
-  .cmp-col { --b: min(100vw - 32px, max(420px, 100vh - 212px)); }
+  .cmp-col { --b: min(100vw - 32px, max(420px, 100vh - 254px)); }
 }
 .panel { min-width: 0; font-size: 14px; background: var(--cell); border-radius: 4px; padding: 12px 16px; }
 .tabs { display: flex; gap: 4px; margin: 0 0 12px; flex-wrap: wrap; }
@@ -216,20 +216,21 @@ main.chart-view { width: min(100vw - 32px, 1600px); }
 .chk { display: inline-flex; align-items: center; gap: 4px; margin-right: 12px; white-space: nowrap; }
 
 @media (min-width: 1100px) {
-  /* --chrome = 頂部 padding 8 + 標題列 34 + 表單兩列 70 + 底部餘裕 16；右欄吃剩下的寬度（最少 400） */
-  .chart-layout { --chrome: 156px; --b: min(100vh - var(--chrome), 100vw - 32px - 16px - 400px); }
+  /* --chrome = 頂部 padding 8 + 標題列 34 + 表單兩列 70 + 盤上工具列 36+6 + 底部餘裕 16；右欄吃剩下的寬度（最少 400） */
+  .chart-layout { --chrome: 198px; --b: min(100vh - var(--chrome), 100vw - 32px - 16px - 400px); }
   .chart-layout {
     grid-template-columns: var(--b) minmax(380px, 1fr); grid-template-rows: auto minmax(0, 1fr);
-    height: var(--b); gap: 8px 16px; align-items: start;
+    height: calc(var(--b) + 42px); gap: 8px 16px; align-items: start;
     grid-template-areas: "board ctrl" "board panel";
   }
   .board-col { grid-row: 1 / 3; }
   .panel { max-height: 100%; height: 100%; overflow-y: auto; }
-  .chart-layout > .ctrl .crow.d12 { grid-template-columns: repeat(6, 1fr); }
-  .chart-layout > .ctrl .crow.y10 { grid-template-columns: repeat(5, 1fr); }
+  .chart-layout > .ctrl .crow.d12 { grid-template-columns: 24px repeat(6, 1fr); }
+  .chart-layout > .ctrl .crow.y10 { grid-template-columns: 24px repeat(5, 1fr); }
   .chart-layout > .ctrl .cbtn { height: 40px; justify-content: center; font-size: 13px; }
   .chart-layout > .ctrl .cbtn:not(.dbtn) span:nth-child(2), .chart-layout > .ctrl .dbtn .rng { font-size: 12px; }
   .chart-layout > .ctrl .cfoot { margin: 4px 0 2px; font-size: 13px; }
+  .chart-layout .rlab { grid-row: 1 / span 2; }
 }
 @media (max-width: 700px) {
   .topbar .title { font-size: 18px; }
@@ -251,60 +252,6 @@ main.chart-view { width: min(100vw - 32px, 1600px); }
 .ptag { font-size: max(8px, calc(var(--b) * 0.012)); border: 1px solid currentColor; border-radius: 2px; padding: 0 2px; line-height: 1.3; white-space: nowrap; }
 .ovn { display: flex; flex-direction: column; align-items: flex-end; margin-top: calc(var(--b) * 0.003); font-size: max(10px, calc(var(--b) * 0.021)); font-weight: 600; line-height: 1.2; white-space: nowrap; }
 
-.ctrl { grid-area: ctrl; }
-.chart-layout > .panel { grid-area: panel; }
-.chart-layout { grid-template-areas: "board" "ctrl" "panel"; }
-@media (min-width: 700px) {
-  .chart-layout { --b: min(100vw - 32px, max(420px, 100vh - var(--chrome))); }
-  .cmp-col { --b: min(100vw - 32px, max(420px, 100vh - 212px)); }
-}
-.panel { min-width: 0; font-size: 14px; background: var(--cell); border-radius: 4px; padding: 12px 16px; }
-.tabs { display: flex; gap: 4px; margin: 0 0 12px; flex-wrap: wrap; }
-.tab { font: inherit; font-size: 14px; color: var(--ink-3); background: transparent; border: 0; border-bottom: 2px solid transparent; padding: 4px 8px; cursor: pointer; }
-.tab.on { color: var(--ink); border-bottom-color: var(--ink); font-weight: 700; }
-.kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; }
-.kv dt { color: var(--ink-3); white-space: nowrap; }
-.kv dd { margin: 0; }
-.chip { display: inline-block; border: 1px solid var(--rule); border-radius: 999px; padding: 1px 10px; font-size: 13px; }
-.chips { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
-.chip.link { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.linkname { font: inherit; color: var(--c-year); background: transparent; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
-.x { font: inherit; color: var(--ink-3); background: transparent; border: 0; cursor: pointer; padding: 0 2px; }
-.note { flex-basis: 100%; color: var(--ink-3); }
-.cons { border-bottom: 1px solid var(--rule); padding: 10px 0; }
-.c-head time { color: var(--ink-3); margin-right: 6px; }
-.owner, .with { color: var(--ink-3); font-size: 12px; }
-.analysis { margin: 6px 0; white-space: pre-wrap; line-height: 1.6; }
-.acts { display: flex; gap: 8px; margin-top: 6px; }
-.cform { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
-.cform label.block { display: flex; flex-direction: column; gap: 2px; }
-.cform textarea { width: 100%; resize: vertical; }
-.cform fieldset { border: 1px solid var(--rule); border-radius: 3px; padding: 4px 8px 8px; margin: 0; }
-.cform legend { font-size: 12px; color: var(--ink-3); padding: 0 4px; }
-.chk { display: inline-flex; align-items: center; gap: 4px; margin-right: 12px; white-space: nowrap; }
-
-@media (min-width: 1100px) {
-  /* --chrome = 頂部 padding 8 + 標題列 34 + 表單兩列 70 + 底部餘裕 16；右欄吃剩下的寬度（最少 400） */
-  .chart-layout { --chrome: 156px; --b: min(100vh - var(--chrome), 100vw - 32px - 16px - 400px); }
-  .chart-layout {
-    grid-template-columns: var(--b) minmax(380px, 1fr); grid-template-rows: auto minmax(0, 1fr);
-    height: var(--b); gap: 8px 16px; align-items: start;
-    grid-template-areas: "board ctrl" "board panel";
-  }
-  .board-col { grid-row: 1 / 3; }
-  .panel { max-height: 100%; height: 100%; overflow-y: auto; }
-  .chart-layout > .ctrl .crow.d12 { grid-template-columns: repeat(6, 1fr); }
-  .chart-layout > .ctrl .crow.y10 { grid-template-columns: repeat(5, 1fr); }
-  .chart-layout > .ctrl .cbtn { height: 40px; justify-content: center; font-size: 13px; }
-  .chart-layout > .ctrl .cbtn:not(.dbtn) span:nth-child(2), .chart-layout > .ctrl .dbtn .rng { font-size: 12px; }
-  .chart-layout > .ctrl .cfoot { margin: 4px 0 2px; font-size: 13px; }
-}
-@media (max-width: 700px) {
-  .topbar .title { font-size: 18px; }
-  .frow { gap: 6px 12px; }
-  .inputs input[type="text"].wide { width: 10em; }
-  .lr-top { flex-wrap: wrap; }
-}
 
 /* ---- 里程碑 4：疊盤、三方四正、合盤 ---- */
 .palace { cursor: pointer; }
@@ -323,8 +270,9 @@ main.chart-view { width: min(100vw - 32px, 1600px); }
 .ctrl { font-size: 12px; min-width: 0; }
 .cmp-col .ctrl { margin-top: 8px; }
 .crow { display: grid; gap: 2px; margin-bottom: 2px; }
-.crow.d12 { grid-template-columns: repeat(12, 1fr); }
-.crow.y10 { grid-template-columns: repeat(10, 1fr); }
+.crow.d12 { grid-template-columns: 24px repeat(12, 1fr); }
+.crow.y10 { grid-template-columns: 24px repeat(10, 1fr); }
+.rlab { grid-column: 1; grid-row: 1; display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--ink-3); writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 0.05em; }
 .cbtn {
   display: flex; flex-direction: column; align-items: center; gap: 0; min-width: 0; padding: 2px 0 3px; line-height: 1.25;
   font: inherit; font-size: 11px; color: var(--ink); background: var(--cell); border: 0; border-radius: 3px; cursor: pointer;
@@ -345,7 +293,28 @@ main.chart-view { width: min(100vw - 32px, 1600px); }
 [data-action="year"].now { box-shadow: inset 0 -2px 0 var(--c-year); }
 .cbtn.on.now { box-shadow: inset 0 -2px 0 var(--on-color); }
 .cfoot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
-.cfoot .sum { color: var(--ink-3); }
+
+/* 盤正上方工具列：寬 = 盤寬 */
+.board-bar { width: var(--b); height: 36px; display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+.bb-view { font-size: 14px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.bb-acts { display: flex; gap: 8px; flex: none; }
+.bb-btn {
+  display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; font: inherit; font-size: 14px; cursor: pointer;
+  color: var(--ink); background: var(--cell); border: 1px solid var(--frame); border-radius: 3px; white-space: nowrap;
+}
+.bb-btn svg { width: 16px; height: 16px; flex: none; }
+.bb-btn.on { background: var(--sel); border-color: var(--sel-edge); }
+.bb-btn.primary { padding: 0 14px; color: var(--on-color); background: var(--ink); border-color: var(--ink); font-weight: 600; }
+.bb-btn:disabled { opacity: .6; cursor: default; }
+.bb-btn:focus-visible { outline: 2px solid var(--sel-edge); outline-offset: 2px; }
+.bb-btn .short { display: none; }
+
+/* 已儲存命盤的表單摘要列 */
+.form-summary { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 14px; color: var(--ink-2); }
+.btn.solid-off { color: var(--ink-3); background: transparent; border-color: var(--rule); cursor: default; }
+.danger-zone { margin-top: 18px; padding-top: 10px; border-top: 1px solid var(--rule); }
+.linkbtn { font: inherit; font-size: 13px; color: var(--danger); background: transparent; border: 0; padding: 0; cursor: pointer; }
+.linkbtn:hover { text-decoration: underline; }
 .vsum { margin: 2px 0; } .vsum small { color: var(--ink-3); margin-right: 6px; }
 .withp { white-space: nowrap; }
 .chip.link .btn.sm { padding: 0 6px; }
@@ -366,13 +335,24 @@ main.compare-view { width: min(100vw - 32px, 920px); }
   .cmp-cols { grid-template-columns: 1fr 1fr; }
   .cmp-col.off { display: block; }
   /* 兩張盤並排：各自 (100vw - 48px) / 2，再受高度限制（160 = 標題列 + 控制列 + 餘裕） */
-  .cmp-col { --b: min((100vw - 48px) / 2, 100vh - 160px); }
+  .cmp-col { --b: min((100vw - 48px) / 2, 100vh - 202px); }
   .ctrl .cbtn { font-size: 12px; }
   .ctrl .cbtn:not(.dbtn) span:nth-child(2), .ctrl .dbtn .rng { font-size: 11px; }
 }
 @media (max-width: 700px) {
-  .crow.d12 { grid-template-columns: repeat(6, 1fr); }
-  .crow.y10 { grid-template-columns: repeat(5, 1fr); }
+  /* 展開的表單：第一列重排成三行（姓名／性別／國農曆 · 日期／時間 · 時辰／快速輸入），標籤另算一列 */
+  .inputs { font-size: 13px; }
+  .inputs .frow:first-child { gap: 6px 8px; }
+  .inputs input[type="text"] { width: 4.5em; }
+  .inputs input[type="text"].quick { width: 8em; }
+  .inputs .grp { gap: 6px; }
+  .f-name { order: 1; } .f-gender { order: 2; } .f-cal { order: 3; } .f-date { order: 4; } .f-time { order: 5; } .f-cert { order: 6; } .f-quick { order: 7; } .f-leap { order: 8; }
+  .board-bar { position: sticky; top: 0; z-index: 2; background: var(--bg); }
+  .bb-btn .long { display: none; }
+  .bb-btn .short { display: inline; }
+  .crow.y10 { grid-template-columns: 24px repeat(5, 1fr); }
+  .crow.d12 { grid-template-columns: 24px repeat(6, 1fr); }
+  .rlab { grid-row: 1 / span 2; }
   .dbtn { grid-template-columns: auto; grid-template-areas: "lim" "dgz"; }
   .dbtn .rng { display: none; }
   .lib .topbar { flex-wrap: wrap; }

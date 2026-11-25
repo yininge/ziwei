@@ -28,7 +28,7 @@ test('大限四 + 流年 2026 疊盤出現在 HTML', () => {
   }
   for (const c of ['hua natal', 'hua dec', 'hua year', 'star major', 'star minor', 'star adj']) assert.ok(out.includes(`class="${c}"`) || out.includes(`class="${c} `), c);
   assert.ok(!out.includes('限忌') && !out.includes('年忌'));
-  assert.ok(out.includes('大限 庚辰 33–42 · 流年 2026 丙午 虛42'));
+  assert.ok(out.includes('四限 庚辰 33–42 · 2026 丙午 虛42'));
 });
 
 test('本命：沒有疊盤字樣', () => {
@@ -61,7 +61,7 @@ test('隱藏生辰：中宮不出國曆；控制列有分享與隱藏生辰按�
   const out = html({ view: 'chart', boards: [board()], hideBirth: true });
   assert.ok(!out.includes('<span class="lb">國曆') && !out.includes('class="pillars"') && !out.includes('<span class="lb">農曆'));
   assert.ok(out.includes('data-action="share"') && out.includes('data-action="hide-birth"'));
-  assert.ok(out.includes('顯示生辰') && shown.includes('隱藏生辰'));
+  assert.ok(out.includes('生辰已隱藏') && shown.includes('隱藏生辰') && !shown.includes('生辰已隱藏'));
 });
 
 test('listHtml：縮影主星＋五行局、篩選 chip、排序 select', () => {
@@ -72,4 +72,35 @@ test('listHtml：縮影主星＋五行局、篩選 chip、排序 select', () => 
   for (const s of ['太陽 太陰', '木三局', 'data-action="filter-tag"', 'data-role="sort"', '家人']) assert.ok(out.includes(s), s);
   assert.ok(!out.includes('左輔'));
   assert.ok(listHtml({ doc, q: '', filterTag: null }, () => null).includes('—'));
+});
+
+// 已儲存的人：selectedId 指到 doc 裡的人，formOpen=false 時表單收成摘要
+const saved = () => {
+  const p = newPerson({ name: '甲', gender: 'M', birth: { calendar: 'solar', date: '1985-03-20', time: '14:00', leap: false, fixLeap: true }, tags: ['朋友', '個案'] });
+  return { doc: upsertPerson(EMPTY_DOC(), p), selectedId: p.id };
+};
+
+test('已儲存、表單收合：只有摘要列，沒有表單與排盤鈕', () => {
+  const out = html({ view: 'chart', boards: [board({ draft: { ...draft, tagsText: '朋友, 個案' } })], ...saved(), formOpen: false });
+  assert.ok(out.includes('form-summary') && out.includes('1985/03/20 14:00 · 男 · 朋友、個案'));
+  assert.ok(!out.includes('<form class="inputs"') && out.includes('data-action="form-open"'));
+  const open = html({ view: 'chart', boards: [board()], ...saved(), formOpen: true });
+  assert.ok(open.includes('<form class="inputs"') && open.includes('data-action="form-close"') && !open.includes('value="chart"'));
+  assert.ok(open.includes('已儲存') && html({ view: 'chart', boards: [board()], ...saved(), formOpen: true, dirty: true }).includes('value="save" class="btn">儲存'));
+});
+
+test('隱藏生辰 + 表單收合：摘要沒有生辰也沒有編輯鈕', () => {
+  const out = html({ view: 'chart', boards: [board()], ...saved(), formOpen: false, hideBirth: true });
+  assert.ok(out.includes('form-summary') && out.includes('生辰已隱藏'));
+  assert.ok(!out.includes('1985/03/20') && !out.includes('1985-03-20') && !out.includes('data-action="form-open"'));
+});
+
+test('盤上工具列；新增模式有排盤鈕；刪除在命盤資訊 tab', () => {
+  const out = html({ view: 'chart', boards: [board()] });
+  assert.ok(out.includes('class="board-bar"') && out.includes('data-action="share"') && out.includes('data-action="hide-birth"'));
+  assert.ok(out.includes('value="chart"') && !out.includes('data-action="delete"'));
+  const s2 = html({ view: 'chart', boards: [board()], ...saved(), formOpen: false });
+  assert.ok(s2.includes('刪除這張命盤') && s2.includes('data-action="delete"'));
+  assert.ok(!html({ view: 'chart', boards: [board()], ...saved(), formOpen: false, panelTab: 'links' }).includes('刪除這張命盤'));
+  assert.ok(out.includes('<span class="rlab">大限</span>') && out.includes('<span class="rlab">流年</span>'));
 });

@@ -137,17 +137,35 @@ ${board.selectedPalace != null ? linesHtml(c, board.selectedPalace) : ''}
 </div>`;
 }
 
-function summaryText(o) {
+function summaryText(o, board) {
   const parts = [];
-  if (o.d) parts.push(`大限 ${o.d.stem}${o.d.branch} ${o.d.range[0]}–${o.d.range[1]}`);
-  if (o.y) parts.push(`流年 ${o.y.year} ${o.y.stem}${o.y.branch} 虛${o.y.nominalAge}`);
+  if (o.d) parts.push(`${NUM[board.decadalOrder - 1] || ''}限 ${o.d.stem}${o.d.branch} ${o.d.range[0]}–${o.d.range[1]}`);
+  if (o.y) parts.push(`${o.y.year} ${o.y.stem}${o.y.branch} 虛${o.y.nominalAge}`);
   return parts.length ? parts.join(' · ') : '本命';
+}
+
+const ICON = (paths) => `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+const EYE = '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>';
+const ICON_EYE = ICON(EYE);
+const ICON_EYE_OFF = ICON(`${EYE}<path d="M3 3l18 18"/>`);
+const ICON_SHARE = ICON('<path d="M12 15V3"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/>');
+
+// 盤正上方工具列（寬 = 盤寬）：左 視圖狀態，右 隱藏生辰 toggle + 分享圖片
+function boardBarHtml(board, state, bi) {
+  if (!board.chart) return '';
+  const hb = !!state.hideBirth;
+  return `<div class="board-bar">
+  <span class="bb-view">${esc(summaryText(overlaysOf(board, state), board))}</span>
+  <span class="bb-acts">
+    <button type="button" class="bb-btn${hb ? ' on' : ''}" data-action="hide-birth" aria-pressed="${hb}">${hb ? ICON_EYE_OFF : ICON_EYE}<span class="long">${hb ? '生辰已隱藏' : '隱藏生辰'}</span><span class="short">${hb ? '已隱藏' : '隱藏'}</span></button>
+    <button type="button" class="bb-btn primary" data-action="share" data-board="${bi}"${state.sharing ? ' disabled' : ''}>${ICON_SHARE}<span class="long">分享圖片</span><span class="short">分享</span></button>
+  </span>
+</div>`;
 }
 
 function controlsHtml(board, state, bi) {
   const c = board.chart;
   if (!c) return '';
-  const o = overlaysOf(board, state);
   const nowOrder = decadalOrderForYear(c, thisYear());
   const dRow = c.decadals
     .map(
@@ -172,9 +190,9 @@ function controlsHtml(board, state, bi) {
 <span>${yr} ${esc(gz)}</span><span>${esc(age)}</span></button>`;
   }).join('');
   return `<div class="ctrl">
-  <div class="crow d12">${dRow}</div>
-  <div class="crow y10">${yRow}</div>
-  <div class="cfoot"><label class="chk"><input type="checkbox" data-action="showflow"${state.showAllFlow ? ' checked' : ''}> 顯示全部流曜</label><button type="button" class="btn ghost sm" data-action="hide-birth">${state.hideBirth ? '顯示生辰' : '隱藏生辰'}</button><button type="button" class="btn ghost sm" data-action="share" data-board="${bi}"${state.sharing ? ' disabled' : ''}>分享圖片</button><span class="sum">${esc(summaryText(o))}</span></div>
+  <div class="crow d12"><span class="rlab">大限</span>${dRow}</div>
+  <div class="crow y10"><span class="rlab">流年</span>${yRow}</div>
+  <div class="cfoot"><label class="chk"><input type="checkbox" data-action="showflow"${state.showAllFlow ? ' checked' : ''}> 顯示全部流曜</label></div>
 </div>`;
 }
 
@@ -271,7 +289,23 @@ function msgHtml(state) {
 
 // ---------- chart view ----------
 
-function formHtml(d, saved, doc) {
+// 新增模式：排盤＋儲存；已儲存：欄位一改就重算，只剩儲存（有變更才實心）＋收合
+function formBtns(saved, state) {
+  if (!saved) return '<button type="submit" name="op" value="chart" class="btn ghost">排盤</button><button type="submit" name="op" value="save" class="btn">儲存</button>';
+  return `${state.dirty
+    ? '<button type="submit" name="op" value="save" class="btn">儲存</button>'
+    : '<button type="submit" name="op" value="save" class="btn ghost" disabled>已儲存</button>'}<button type="button" class="btn ghost" data-action="form-close">收合</button>`;
+}
+
+// 已儲存命盤的收合摘要；隱藏生辰時畫面上不能有生辰，也不給編輯鈕
+function summaryHtml(d, hideBirth) {
+  const tags = (d.tagsText || '').split(/[,，、]/).map((t) => t.trim()).filter(Boolean);
+  const when = hideBirth ? '生辰已隱藏' : `${d.calendar === 'lunar' ? '農曆 ' : ''}${d.date.replaceAll('-', '/')} ${d.time}${d.leap ? ' 閏' : ''}`;
+  const text = [when, d.gender === 'M' ? '男' : '女', tags.join('、')].filter(Boolean).join(' · ');
+  return `<div class="form-summary"><span>${esc(text)}</span>${hideBirth ? '' : '<button type="button" class="btn ghost sm" data-action="form-open">編輯</button>'}</div>`;
+}
+
+function formHtml(d, saved, doc, state) {
   const lunar = d.calendar === 'lunar';
   const chk = (b) => (b ? ' checked' : '');
   const sel = (v) => (d.timeCertainty === v ? ' selected' : '');
@@ -282,23 +316,23 @@ function formHtml(d, saved, doc) {
     .join('');
   return `<form class="inputs" data-form="person" autocomplete="off">
   <div class="frow">
-    <label>姓名 <input name="name" type="text" value="${esc(d.name)}" placeholder="必填"></label>
-    <span class="grp">
+    <label class="f-name">姓名 <input name="name" type="text" value="${esc(d.name)}" placeholder="必填"></label>
+    <span class="grp f-cal">
       <label><input type="radio" name="calendar" value="solar"${chk(!lunar)}> 國曆</label>
       <label><input type="radio" name="calendar" value="lunar"${chk(lunar)}> 農曆</label>
     </span>
-    <label>日期 <input name="date" type="date" value="${esc(d.date)}" required></label>
-    <label>時間 <input name="time" type="time" value="${esc(d.time)}" required></label>
-    <span class="grp">
+    <label class="f-date">日期 <input name="date" type="date" value="${esc(d.date)}" required></label>
+    <label class="f-time">時間 <input name="time" type="time" value="${esc(d.time)}" required></label>
+    <span class="grp f-quick">
       <label>快速輸入 <input name="quick" data-role="quick" type="text" inputmode="numeric" class="quick" placeholder="例如：199405111430"></label>
       <button type="button" class="btn ghost sm" data-action="quick">套用</button>
     </span>
-    <span class="grp">
+    <span class="grp f-gender">
       <label><input type="radio" name="gender" value="M"${chk(d.gender === 'M')}> 男</label>
       <label><input type="radio" name="gender" value="F"${chk(d.gender === 'F')}> 女</label>
     </span>
-    ${lunar ? `<label><input type="checkbox" name="leap"${chk(d.leap)}> 閏月</label>` : ''}
-    <label>時辰
+    ${lunar ? `<label class="f-leap"><input type="checkbox" name="leap"${chk(d.leap)}> 閏月</label>` : ''}
+    <label class="f-cert">時辰
       <select name="timeCertainty">
         <option value="exact"${sel('exact')}>${CERTAINTY.exact}</option>
         <option value="approx"${sel('approx')}>${CERTAINTY.approx}</option>
@@ -309,11 +343,7 @@ function formHtml(d, saved, doc) {
   <div class="frow">
     <span class="grp">標籤 ${chips}</span>
     <input name="tagsExtra" type="text" placeholder="其他，逗號分隔">
-    <span class="grp">
-      <button type="submit" name="op" value="chart" class="btn ghost">排盤</button>
-      <button type="submit" name="op" value="save" class="btn">儲存</button>
-      ${saved ? '<button type="button" class="btn danger" data-action="delete">刪除</button>' : ''}
-    </span>
+    <span class="grp" data-role="btns">${formBtns(saved, state)}</span>
   </div>
 </form>`;
 }
@@ -325,7 +355,8 @@ function infoTab(p) {
   <dt>時辰確定度</dt><dd>${esc(CERTAINTY[p.timeCertainty] || '')}</dd>
   <dt>建立</dt><dd>${esc(fmtTime(p.createdAt))}</dd>
   <dt>更新</dt><dd>${esc(fmtTime(p.updatedAt))}</dd>
-</dl>`;
+</dl>
+<div class="danger-zone"><button type="button" class="linkbtn" data-action="delete">刪除這張命盤</button></div>`;
 }
 
 function consultForm(state, v, formName, cid) {
@@ -440,10 +471,10 @@ function chartViewHtml(state) {
   const saved = state.selectedId ? findPerson(state.doc, state.selectedId) : null;
   return `<main class="chart-view">
 <header class="topbar"><button type="button" class="btn ghost" data-action="library">‹ 列表</button><h1 class="title">${esc(saved ? saved.name : '新增命盤')}</h1></header>
-${formHtml(board.draft, !!saved, state.doc)}
+${!saved || state.formOpen ? formHtml(board.draft, !!saved, state.doc, state) : summaryHtml(board.draft, state.hideBirth)}
 ${msgHtml(state)}
 <div class="chart-layout">
-<div class="board-col">${boardHtml(board, state, 0)}</div>
+<div class="board-col">${boardBarHtml(board, state, 0)}${boardHtml(board, state, 0)}</div>
 ${controlsHtml(board, state, 0)}
 ${panelHtml(state)}
 </div>
@@ -457,7 +488,7 @@ function compareViewHtml(state) {
   const { side, syncYear } = state.compare;
   const nm = (bd) => (bd.draft.name || '').trim() || '未命名';
   const col = (bd, i) =>
-    `<section class="cmp-col${i === side ? '' : ' off'}">${boardHtml(bd, state, i)}${controlsHtml(bd, state, i)}</section>`;
+    `<section class="cmp-col${i === side ? '' : ' off'}">${boardBarHtml(bd, state, i)}${boardHtml(bd, state, i)}${controlsHtml(bd, state, i)}</section>`;
   const seg = [a, b]
     .map((bd, i) => `<button type="button" class="${i === side ? 'on' : ''}" data-action="side" data-side="${i}">${i === 0 ? '甲' : '乙'} ${esc(nm(bd))}</button>`)
     .join('');

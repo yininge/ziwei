@@ -27,12 +27,14 @@ const state = {
   selectedId: null, // null = 新增中、尚未儲存
   boards: [], // chart view 只用 [0]；compare 用 [0]、[1]
   showAllFlow: false,
-  hideBirth: false, // 只影響盤面與輸出圖，表單照常顯示
+  hideBirth: false, // 盤面、輸出圖、收合摘要都不出現生辰（展開中的表單除外，開啟時會自動收合）
   sharing: false,
   compare: { side: 0, syncYear: true },
   error: '',
   notice: '',
   panelTab: 'info',
+  formOpen: true, // 新增模式固定展開；已儲存的人進入時收合成摘要列
+  dirty: false, // 已儲存的人：表單有未存的變更
   editingConsult: null,
   forms: { consult: {}, link: {} }, // 面板底部新增表單的草稿，重畫時不掉字
 };
@@ -131,6 +133,7 @@ async function commit(newDoc, onOk) {
       } else if (p) {
         // 表單草稿換成重載後的資料，否則再按一次儲存會把別人的改動蓋掉
         A().draft = draftOf(p);
+        state.dirty = false;
         recompute();
       }
     } else {
@@ -163,6 +166,8 @@ function openChart(id) {
   state.notice = '';
   state.editingConsult = null;
   state.forms = { consult: {}, link: {} };
+  state.formOpen = !id;
+  state.dirty = false;
   if (id) {
     state.boards = [blankBoard(id, draftOf(findPerson(state.doc, id)))];
   } else {
@@ -230,11 +235,16 @@ async function importFile(file) {
   draw();
 }
 
+// 離開有未儲存變更的命盤前確認
+const leaveOk = () => !(state.view === 'chart' && state.dirty) || confirm('有未儲存的變更，要放棄嗎？');
+
 const actions = {
-  new: () => openChart(null),
-  open: (el) => openChart(el.dataset.id),
+  new: () => leaveOk() && openChart(null),
+  open: (el) => leaveOk() && openChart(el.dataset.id),
   lock: () => lock(),
   library: () => {
+    if (!leaveOk()) return;
+    state.dirty = false;
     state.view = 'library';
     state.error = '';
     state.notice = '';
@@ -283,6 +293,15 @@ const actions = {
   },
   'hide-birth': () => {
     state.hideBirth = !state.hideBirth;
+    if (state.hideBirth && state.selectedId) state.formOpen = false; // 開啟隱藏時收合；關閉不自動展開
+    draw();
+  },
+  'form-open': () => {
+    state.formOpen = true;
+    draw();
+  },
+  'form-close': () => {
+    state.formOpen = false;
     draw();
   },
   async share(el) {
@@ -364,6 +383,7 @@ const actions = {
     }
     A().draft.date = `${y}-${m}-${d}`;
     if (v.length === 12) A().draft.time = `${hh}:${mm}`;
+    if (state.selectedId) state.dirty = true;
     recompute();
     draw();
   },
@@ -438,7 +458,10 @@ const forms = {
     state.error = '';
     state.notice = '';
     const ok = recompute();
-    if (e.submitter?.value !== 'save') return draw();
+    if (e.submitter?.value !== 'save') {
+      if (state.selectedId) state.dirty = true; // 已儲存的人沒有排盤鈕，這是 Enter 之類的送出
+      return draw();
+    }
     if (!A().draft.name) {
       state.error = '請填姓名';
       return draw();
@@ -455,6 +478,7 @@ const forms = {
     const person = state.selectedId ? { ...me(), ...fields } : newPerson(fields);
     commit(upsertPerson(state.doc, person), () => {
       state.selectedId = person.id;
+      state.dirty = false;
     });
   },
   'consult-new'(f) {
@@ -522,9 +546,29 @@ root.addEventListener('change', (e) => {
   }
   if (e.target.name !== 'calendar') return;
   A().draft = readPerson(e.target.form);
+  if (state.selectedId) state.dirty = true;
   recompute();
   draw();
 });
+
+// 已儲存的人：欄位一改就重算。只換盤區與按鈕，表單本身不重畫（輸入中才不會掉焦點）。
+// 這幾個欄位不影響排盤，只標 dirty。
+const NO_RECALC = ['name', 'tags', 'tagsExtra', 'timeCertainty'];
+function onPersonEdit(f, t) {
+  A().draft = readPerson(f);
+  state.error = '';
+  state.notice = '';
+  if (state.selectedId) state.dirty = true;
+  if (!NO_RECALC.includes(t.name)) recompute();
+  if (state.error) return draw(); // 排盤失敗：整頁重畫以顯示錯誤
+  const tmp = document.createElement('div');
+  render(state, tmp);
+  for (const sel of ['.board-col', '.ctrl', '[data-role="btns"]']) {
+    const next = tmp.querySelector(sel);
+    const cur = root.querySelector(sel);
+    if (next && cur) cur.replaceWith(next);
+  }
+}
 
 root.addEventListener('input', (e) => {
   const t = e.target;
@@ -533,6 +577,8 @@ root.addEventListener('input', (e) => {
     root.querySelector('#list').innerHTML = listHtml(state);
     return;
   }
+  const pf = t.closest('form[data-form="person"]');
+  if (pf && state.selectedId && t.dataset.role !== 'quick' && t.name !== 'calendar') return onPersonEdit(pf, t);
   const f = t.closest('form[data-draft]');
   if (f?.dataset.draft === 'consult') state.forms.consult = readConsult(f);
   else if (f?.dataset.draft === 'link') state.forms.link = readLink(f);
