@@ -1,0 +1,17 @@
+{
+  "name": "ziwei",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-11-20",
+  // 靜態檔從 repo 根目錄上傳（排除項見 .assetsignore）；只有 /api/* 先進 Worker，其餘直接給資產。
+  "assets": { "directory": ".", "binding": "ASSETS", "run_worker_first": ["/api/*"] },
+  // KV namespace id：Cloudflare dashboard → Workers & Pages → KV → Create namespace 後複製 ID
+  //（或 `npx wrangler kv namespace create PEOPLE`，輸出會附 id）。
+  "kv_namespaces": [{ "binding": "PEOPLE", "id": "5d3bfd84c5d2479382a8d2eb995fd6b2" }],
+  "vars": {
+    // TEAM_DOMAIN 與 POLICY_AUD：部署後到 Worker → Settings → Domains & Routes，
+    // 對該網域啟用 Cloudflare Access，彈窗會給「JWT audience (AUD) tag」與 team domain
+    //（格式 https://<team>.cloudflareaccess.com，不要結尾斜線）。
+    "TEAM_DOMAIN": "https://still-wave-e887.cloudflareaccess.com",
+    "POLICY_AUD": "1798d186f4be7f88163710dd7ab3f681fd4f326fd25ecd479ddb2d149502d957"
+  }
+}

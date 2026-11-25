@@ -1,0 +1,15 @@
+data/
+test/
+worker/
+scripts/
+server.js
+package.json
+wrangler.jsonc
+.assetsignore
+.gitignore
+.git/
+.claude/
+node_modules/
+*.md
+assets/raw/
+assets/samples/
